@@ -24,6 +24,7 @@
 #include "MD5.h"
 #include "nvram.h"
 #include "net_driver.h"
+#include "sx1278_lora.h"
 
 /*-----------------------------define----------------------------------------*/
 

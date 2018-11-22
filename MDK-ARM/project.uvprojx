@@ -111,12 +111,12 @@
         <DllOption>
           <SimDllName>SARMCM3.DLL</SimDllName>
           <SimDllArguments> -REMAP</SimDllArguments>
-          <SimDlgDll>DCM.DLL</SimDlgDll>
-          <SimDlgDllArguments>-pCM3</SimDlgDllArguments>
+          <SimDlgDll>DARMSTM.DLL</SimDlgDll>
+          <SimDlgDllArguments>-pSTM32F103RC</SimDlgDllArguments>
           <TargetDllName>SARMCM3.DLL</TargetDllName>
           <TargetDllArguments></TargetDllArguments>
-          <TargetDlgDll>TCM.DLL</TargetDlgDll>
-          <TargetDlgDllArguments>-pCM3</TargetDlgDllArguments>
+          <TargetDlgDll>DARMSTM.DLL</TargetDlgDll>
+          <TargetDlgDllArguments>-pSTM32F103RC</TargetDlgDllArguments>
         </DllOption>
         <DebugOption>
           <OPTHX>
@@ -138,7 +138,7 @@
           </Flash1>
           <bUseTDR>1</bUseTDR>
           <Flash2>BIN\UL2CM3.DLL</Flash2>
-          <Flash3></Flash3>
+          <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
           <pFcarmOut></pFcarmOut>
           <pFcarmGrp></pFcarmGrp>
@@ -334,7 +334,7 @@
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls></MiscControls>
-              <Define>STM32F10X_HD,USE_STDPERIPH_DRIVER,MD5_ENABLE,IWDG_ENABLE</Define>
+              <Define>STM32F10X_HD,USE_STDPERIPH_DRIVER,MD5_ENABLE,xIWDG_ENABLE</Define>
               <Undefine></Undefine>
               <IncludePath>..\applications;..\Libraries\CMSIS\CM3\CoreSupport;..\Libraries\STM32F10x_StdPeriph_Driver\inc;..\Libraries\CMSIS\CM3\DeviceSupport\ST\STM32F10x;..\applications\SysTick;..\drivers;..\applications\Common</IncludePath>
             </VariousControls>
@@ -579,6 +579,21 @@
               <FileName>Flash_Eval.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\drivers\Flash_Eval.c</FilePath>
+            </File>
+            <File>
+              <FileName>Spi_Eval.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\drivers\Spi_Eval.c</FilePath>
+            </File>
+            <File>
+              <FileName>sx1278_lora_1.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\drivers\sx1278_lora_1.c</FilePath>
+            </File>
+            <File>
+              <FileName>sx1278_lora_2.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\drivers\sx1278_lora_2.c</FilePath>
             </File>
           </Files>
         </Group>

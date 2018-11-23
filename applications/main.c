@@ -56,6 +56,8 @@ uint32_t lst_sendtag_time;
 uint8_t  sendtag_buf[sizeof(bletg_info_t)*MAX_TAG_COUNTER + sizeof(gateway_sendtag_t) + sizeof(uint8_t)];
 uint8_t  tag_counter = 0;
 bletg_record_t tag_record[MAX_TAG_COUNTER];
+lorainf_mgr_t  lora1inf_mgr;
+lorainf_mgr_t  lora2inf_mgr;
 /* Function -----------------------------------------------------*/
 static void Uart2AppTask(void);
 static void ServerUploadResponseCmd(uint8_t cmd, uint8_t*payload_buf, uint16_t payload_len);
@@ -66,7 +68,7 @@ static void ServerSynchroTimeCmd(uint8_t cmd, uint8_t*payload_buf, uint16_t payl
 static void Uart3AppTask(void);
 static void BleSearchTagCmd(uint8_t cmd, uint8_t*payload_buf, uint16_t payload_len);
 static void BleSearchWifiCmd(uint8_t cmd, uint8_t*payload_buf, uint16_t payload_len);
-
+static void LoraAppTask(void);
 /*************************************************
 函数: int main(void)
 功能: main主函数
@@ -96,6 +98,9 @@ int main(void)
 	UART_Work_Init();
     //Flash参数初始化
     Nvram_Init();
+	//Lora模块初始化
+	sx1278_1Init();
+	sx1278_2Init();
     
     LED_Control(LED0,Off);
     LED_Control(LED1,Off);
@@ -257,9 +262,9 @@ WIFI_CONFIG_START:
                 lst_updata_time = get_current_tick();
             }
         }
-        
-        //与蓝牙接收模块通讯函数
-        Uart3AppTask();
+		
+        //Lora功能处理函数
+        LoraAppTask();
         
         //定时发送Tag信息
         temp_syn_time = get_synchro_time();
@@ -879,4 +884,84 @@ static void BleSearchWifiCmd(uint8_t cmd, uint8_t*payload_buf, uint16_t payload_
         Nvram_Block_Write("user", blkbuf, sizeof(blkbuf));
         Sys_Soft_Reset();
     }
+}
+/***********************Lora功能处理函数*************************/
+/*************************************************
+函数: static void LoraRxData_Handle(void)
+功能: 解析过滤Lora接收的数据
+参数: 无
+返回: 无
+*************************************************/
+static void LoraRxData_Handle(void)
+{
+;
+}
+
+/*************************************************
+函数: static void LoraData_AppTask(void)
+功能: 处理Lora接收发送数据
+参数: 无
+返回: 无
+*************************************************/
+static void LoraData_AppTask(void)
+{
+	if(lora1inf_mgr.rxsize != 0)
+	{
+		if(lora1inf_mgr.rxbuf != NULL)
+			LoraRxData_Handle();
+	}
+	else if(lora1inf_mgr.txsize != 0)
+	{
+		lora1inf_mgr.txsize = 0;
+	}
+	else if(lora2inf_mgr.rxsize != 0)
+	{
+		if(lora2inf_mgr.rxbuf != NULL)
+			LoraRxData_Handle();		
+	}
+	else if(lora2inf_mgr.txsize != 0)
+	{
+		lora2inf_mgr.txsize = 0;
+	}
+	else
+	{
+		;
+	}
+}
+
+/*************************************************
+函数: static void LoraAppTask(void)
+功能: 处理与Lora相关的进程
+参数: 无
+返回: 无
+*************************************************/
+static void LoraAppTask(void)
+{
+	switch(sx1278Lora_1Process())
+	{
+		case RFLR_STATE_RX_DONE:
+			//读RXbuff解析数据并进入发送模式	
+			break;
+			
+		case RFLR_STATE_TX_DONE:
+			//进入接收模式
+			break;
+		
+		default:
+			break;		
+	}
+		
+	switch(sx1278Lora_2Process())
+	{	
+		case RFLR_STATE_RX_DONE:
+			//读RXbuff解析数据并进入发送模式	
+			break;
+			
+		case RFLR_STATE_TX_DONE:
+			//进入接收模式
+			break;
+		
+		default:
+			break;			
+	}
 }

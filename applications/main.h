@@ -148,6 +148,14 @@ typedef __packed struct
     uint32_t lst_recv_time;
     uint8_t TAG_HAVING;
 }bletg_record_t;
+
+typedef __packed struct
+{
+	uint8_t *rxbuf;
+	uint8_t *txbuf;
+	uint8_t rxsize;
+	uint8_t txsize;
+}lorainf_mgr_t;
 /* ---------------------Private variables -----------------------------------*/
 /********************variables*************************/
 extern image_version_t Gateway_Version;

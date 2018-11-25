@@ -50,6 +50,12 @@ enum
     TYPE_SYNCHROREQ         = 0x04,//网关同步时间命令
     TYPE_SYNCHROREQRESP     = 0x84,
 };
+enum
+{    
+    TYPE_LORATAGUP          = 0x01,//身份卡上传LORATAG帧
+    
+    TYPE_LORATAUPRESP       = 0x81,//网关回复LORATAG帧
+};
 typedef __packed struct
 {
     uint8_t   MAJOR;
@@ -108,9 +114,9 @@ typedef __packed struct
     gateway_pkt_hdr_t newimage_header;
     image_version_t newimage_ver;
     uint32_t now_time;
-    uint8_t tag_counter;
+    uint8_t loratag_counter;
     //uint8_t payload[0];
-}gateway_sendtag_t;
+}gateway_sendloratag_t;
 
 typedef __packed struct
 {
@@ -132,22 +138,24 @@ typedef __packed struct
     uint8_t cmd_type;
     uint8_t len;
     //uint8_t payload[0];
-}bletg_pkt_hdr_t;
+}loratg_pkt_hdr_t;
 
 typedef __packed struct
 {
-    uint8_t status;
+    uint8_t index[2];
     uint8_t rssi;
-    uint16_t major;
-    uint16_t minor;
-}bletg_info_t;
+    uint8_t major[2];
+    uint8_t minor[2];
+}bleinf_record_t;
 
 typedef __packed struct
 {
-    bletg_info_t tag_info;
-    uint32_t lst_recv_time;
-    uint8_t TAG_HAVING;
-}bletg_record_t;
+	uint8_t macaddress[6];
+	uint8_t status;
+	uint8_t interval[2];
+	uint8_t blenum;
+    uint8_t *blebuf_ptr;
+}loratg_record_t;
 
 typedef __packed struct
 {
@@ -155,6 +163,7 @@ typedef __packed struct
 	uint8_t *txbuf;
 	uint8_t rxsize;
 	uint8_t txsize;
+	uint8_t txflg;
 }lorainf_mgr_t;
 /* ---------------------Private variables -----------------------------------*/
 /********************variables*************************/

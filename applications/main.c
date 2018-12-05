@@ -31,6 +31,7 @@ uint8_t btgw_DeviceID[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 #define UPLOAD1_NO_ACK_OVER_TIME    (SYS_TICK_PER_SECOND*30)
 #define UPLOAD2_NO_ACK_OVER_TIME    (SYS_TICK_PER_SECOND*60)
 #define NO_ACK_MAX_COUNTER          (3)
+#define NO_LORATAG_CHECK_COUNTER    (30)
 
 /* Variable -----------------------------------------------------*/
 uint8_t btgw_preFix[] = {'L', 'R', 'G', 'W'};
@@ -41,6 +42,7 @@ uint8_t bltag_sufFix[] = {0x0D, 0x0A};
 uint32_t feed_iwdg_time;
 uint32_t lst_led_time;
 uint32_t lst_updata_time;
+uint8_t lora_rx_check_time;
 int wifi_config_counter = 5;
 
 uint32_t not_detect_ack_time;
@@ -198,7 +200,8 @@ WIFI_CONFIG_START:
     not_detect_ack_time = get_current_tick();
     not_detect_over_time = UPLOAD1_NO_ACK_OVER_TIME;
     detect_over_counter = 0;
-    
+    lora_rx_check_time  = 0;
+	
     while(1)
     {
 #ifdef IWDG_ENABLE
@@ -319,9 +322,16 @@ WIFI_CONFIG_START:
         
             lst_sendtag_time = temp_syn_time;
 			
-            //删除LORA_TAG信息
-            inf_offset = 0;
-            loratag_counter = 0;
+			//删除LORA_TAG信息
+			inf_offset = 0;
+			
+			if(loratag_counter == 0)
+				lora_rx_check_time ++;			
+			else
+			{
+				loratag_counter    = 0;
+				lora_rx_check_time = 0;
+			}
         }
         
         //检测上传回复命令
@@ -876,5 +886,12 @@ static void LoraAppTask(void)
 				sx1278Lora_2SetRFStatus(RFLR_STATE_TX_INIT);
 		}	
 		lora2inf_mgr.rxsize = 0;
+	}
+	
+	if(lora_rx_check_time > NO_LORATAG_CHECK_COUNTER)
+	{
+		lora_rx_check_time = 0;
+		sx1278Lora_1SetRFStatus(RFLR_STATE_RX_INIT);
+		sx1278Lora_2SetRFStatus(RFLR_STATE_RX_INIT);
 	}
 }

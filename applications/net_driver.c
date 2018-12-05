@@ -3,7 +3,7 @@
 
 const AT_COMMAND At_Command[]=
 {
-    {"AT+RESTORE\r\n","",2},
+    {"AT+RESTORE\r\n","NOACK",5},
     {"AT+CWMODE=1\r\n","OK",2},
     {"AT+CWDHCP=1,1\r\n","OK",2},
     {"AT+CWJAP","OK",20},
@@ -32,7 +32,16 @@ uint8_t Wifi_Send_Data(uint8_t *data, uint8_t *ack, uint16_t waittime)
     USART2_SendData(data, strlen((char*)data));//发送命令
     wifi_at_time = get_current_tick();
     
-	if(ack&&waittime)		//需要等待应答
+	if(strstr((char*)ack, "NOACK") != NULL)   //恢复出厂设置无需等待应答,延时大于4s即可
+	{
+		while(get_current_tick() - wifi_at_time < waittime*SYS_TICK_PER_SECOND)	//等待倒计时
+		{	
+			IWDG_ReloadCounter();
+			delay_ms(10);
+		}		
+		res = 0;
+	}
+	else if(ack&&waittime)		//需要等待应答
 	{
 		while(get_current_tick() - wifi_at_time < waittime*SYS_TICK_PER_SECOND)	//等待倒计时
 		{
@@ -86,7 +95,7 @@ int Wifi_Config(int ignore_flag)
     if(Wifi_Send_Data((uint8_t*)At_Command[0].cmd_str,(uint8_t*)At_Command[0].replay_str,At_Command[0].cmd_timeout) != 0)
         goto AT_CONFIG_ERR;
     
-    delay_ms(1000);
+    delay_ms(2000);
     
     //3、设置STA模式
     if(Wifi_Send_Data((uint8_t*)At_Command[1].cmd_str,(uint8_t*)At_Command[1].replay_str,At_Command[1].cmd_timeout) != 0)

@@ -200,10 +200,10 @@ int Nvram_Block_Init(char *name)
         //strcpy(pblk->ssid, "MediaSoc-BLE");
         //strcpy(pblk->key, "mediasoc");
         //strcpy(pblk->sip, "58.246.5.170");
-        strcpy(pblk->ssid, "MS_BLE_TEST");
-        strcpy(pblk->key, "mediasoc61910557");
+        strcpy(pblk->ssid, "MS_BLE");
+        strcpy(pblk->key, "ms123456");
         strcpy(pblk->sip, "139.196.197.176");
-        pblk->port = 10580;
+        pblk->port = 10680;
         pblk->net_mode = 0;
     }
     

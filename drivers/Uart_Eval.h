@@ -35,8 +35,6 @@ extern uint8_t  Uart2_RxBuf[UART2_RXBUF_SIZE];
 extern volatile uint16_t Uart2_RxBuf_Read;
 extern volatile uint16_t Uart2_RxBuf_Write;
 extern volatile uint32_t Uart2_RxCnt;
-extern volatile uint8_t  Uart_Mode;
-extern volatile uint8_t  Uart_Full;
 /*************************************************/
 
 /****************USART3Ω” ’ª∫¥Ê*******************/

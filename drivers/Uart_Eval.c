@@ -205,8 +205,6 @@ uint8_t  Uart2_RxBuf[UART2_RXBUF_SIZE];
 volatile uint16_t Uart2_RxBuf_Read  = 0;
 volatile uint16_t Uart2_RxBuf_Write = 0;
 volatile uint32_t Uart2_RxCnt = 0;
-volatile uint8_t  Uart_Mode = 0;
-volatile uint8_t  Uart_Full = 0;
 /*************************************************/
 
 /****************USART2发送缓存*******************/
@@ -342,21 +340,11 @@ void USART2_IRQHandler(void)
 
         tmpWrite = Uart2_RxBuf_Write + 1;
         if(tmpWrite >= UART2_RXBUF_SIZE)         
-        {
             tmpWrite = 0;
-            Uart_Full = 1;
-        }
-        
-        if (tmpWrite != Uart2_RxBuf_Read)
-        {
-            if( (Uart_Mode == 0) && (Uart_Full == 1) )
-                return;
             
             Uart2_RxBuf[Uart2_RxBuf_Write] = u8tmp;
             Uart2_RxBuf_Write = tmpWrite;
-            Uart2_RxCnt++;
-        }
-        
+            Uart2_RxCnt++;        
 	}
 	else if(USART_GetITStatus(USART2, USART_IT_TC) != RESET)    //若接收数据寄存器满
 	{

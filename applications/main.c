@@ -179,8 +179,6 @@ WIFI_CONFIG_START:
             Uart2_RxCnt = 0;
             Uart2_RxBuf_Read = 0;
             Uart2_RxBuf_Write = 0;
-            Uart_Mode = 1;
-            Uart_Full = 0;
             memset(Uart2_RxBuf, 0, sizeof(Uart2_RxBuf));
         )
     }

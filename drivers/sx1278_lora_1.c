@@ -265,10 +265,10 @@ void sx1278_1SetLoRaOn(bool enable)
 		
 		sx1278Lora_1SetParameters();
 		
-		sx1278Lora_1SetSymbTimeout( 0x3FF );	
+		sx1278Lora_1SetSymbTimeout( 0x0FC );	
 		
 		SX1278LR_1->RegPreambleMsb = 0;
-		SX1278LR_1->RegPreambleLsb = 16;
+		SX1278LR_1->RegPreambleLsb = 6;
 		sx1278_1WriteData(REG_LR_PREAMBLEMSB, SX1278LR_1->RegPreambleMsb);
 		sx1278_1WriteData(REG_LR_PREAMBLELSB, SX1278LR_1->RegPreambleLsb); 				
 		

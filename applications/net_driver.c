@@ -1,6 +1,8 @@
 
 #include "net_driver.h"
 
+int StrStr_X(uint8_t *str1, uint8_t *str2, int strlen1, int strlen2);
+
 const AT_COMMAND At_Command[]=
 {
     {"AT+RESTORE\r\n","NOACK",5},
@@ -46,7 +48,7 @@ uint8_t Wifi_Send_Data(uint8_t *data, uint8_t *ack, uint16_t waittime)
 		{
             IWDG_ReloadCounter();
 			delay_ms(10);
-			if(strstr((char*)Uart2_RxBuf, (char*)ack) != NULL)
+			if(StrStr_X(Uart2_RxBuf, (uint8_t*)ack, sizeof(Uart2_RxBuf),sizeof(uint16_t)) == 0)
             {
                 res = 0;
                 break;
@@ -128,13 +130,33 @@ AT_CONFIG_ERR:
     return -1;
 }
 
-
-
-
-
-
-
-
-
-
-
+/*******************************************************************************
+* Function Name  : StrStr_X
+* Description    : BUFFÖÐ¼ìË÷×Ö·û´®
+* Input          : str1     ±»¼ìË÷×Ö·û´®   str2    ¼ìË÷×Ö·û´®  
+                   strlen1  ±»¼ìË÷³¤¶È     strlen2 ¼ìË÷×Ö·û´®³¤¶È
+* Output         : None
+* Return         : 0¼ìË÷³É¹¦  -1Ê§°Ü
+* Attention		 : ¼ìË÷×Ö·û´®1ÖÐÊÇ·ñ°üº¬×Ö·û´®2
+*******************************************************************************/
+int StrStr_X(uint8_t *str1, uint8_t *str2, int strlen1, int strlen2)
+{	
+	int i;
+	
+	for( i=0; i<strlen1; i++)
+	{
+		if(*str1 != *str2)
+			str1 ++;
+		else
+		{
+			if(memcmp(str1, str2, strlen2) == 0)							
+				break;			
+			str1 ++;	
+		}
+	}
+	
+	if(i < strlen1)
+		return 0;
+	
+	return -1;
+}

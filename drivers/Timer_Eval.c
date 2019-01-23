@@ -11,7 +11,8 @@
 uint16_t ext_tick = 0;
 volatile uint32_t system_synchro_time = 0;
 volatile uint16_t update_one_senond = 0;
-
+volatile bool sendLoraTag_Flg = false;
+	
 /*************************************************
 函数: void Timer4_Configuration(void)
 功能: TIM2 配置
@@ -68,6 +69,7 @@ void TIM4_IRQHandler(void)
         {
             update_one_senond = 0;
             system_synchro_time++;
+            sendLoraTag_Flg = true;
         }
 	}
 }
@@ -132,4 +134,17 @@ void set_synchro_time(uint32_t syn_time_value)
         system_synchro_time = syn_time_value;
 		update_one_senond = 0;
     )
+}
+
+/*************************************************
+函数: void Timer4_Rstart(void)
+功能: 设置Timer4重新计时
+参数: 无
+返回: 无
+说明：无
+**************************************************/
+void Timer4_Rstart(void)
+{
+	TIM_SetCounter(TIM4, 1);
+	system_synchro_time = 0;
 }

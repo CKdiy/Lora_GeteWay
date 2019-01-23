@@ -14,5 +14,6 @@ uint32_t get_synchro_time(void);
 
 void set_synchro_time(uint32_t syn_time_value);
 
+void Timer4_Rstart(void);
 #endif
 

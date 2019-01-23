@@ -57,7 +57,6 @@ uint8_t StartReqNextPkt;
 uint32_t lst_reqpkt_time;
 uint32_t req_next_addr;
 
-uint32_t lst_sendtag_time;
 uint8_t  loratag_counter = 0;
 loratg_record_t loratag_record[MAX_LORATAG_COUNTER];
 bleinf_record_t bleinf_record[MAX_LORATAG_COUNTER];   
@@ -65,6 +64,7 @@ uint8_t lorataglist[6*MAX_LORATAG_COUNTER];
 uint8_t  sendloratag_buf[300];
 static lorainf_mgr_t  lora1inf_mgr;
 static lorainf_mgr_t  lora2inf_mgr;
+extern volatile bool sendLoraTag_Flg;
 
 /* Function -----------------------------------------------------*/
 static void Uart2AppTask(void);
@@ -83,7 +83,7 @@ static void LoraAppTask(void);
 int main(void)
 {
     uint16_t j = 0, inf_offset = 0;
-    uint32_t temp_syn_time;
+    uint32_t current_tick;
     uint16_t dstblkOffset;
     nv_user_param_t *user_param;
     
@@ -193,6 +193,9 @@ WIFI_CONFIG_START:
         //直接启动串口转以太网模块，开始运行
     }
     
+	//重新计时
+	Timer4_Rstart();
+	
     //初始化检测变量
     select_detect_mode = 0;
     not_detect_ack_time = get_current_tick();
@@ -202,17 +205,19 @@ WIFI_CONFIG_START:
 	
     while(1)
     {
+        current_tick = get_current_tick();
+		
 #ifdef IWDG_ENABLE
         //清看门狗
-        if(get_current_tick() - feed_iwdg_time > FEED_IWDG_TIME)
+        if(current_tick - feed_iwdg_time > FEED_IWDG_TIME)
         {
             IWDG_ReloadCounter();
-            feed_iwdg_time = get_current_tick();
+            feed_iwdg_time = current_tick;
         }
 #endif 
         
         //LED灯控制
-        if(get_current_tick() - lst_led_time > LED_FLUSH_TIME)
+        if(current_tick- lst_led_time > LED_FLUSH_TIME)
         {
             if(user_param->net_mode == 0)
             {
@@ -225,9 +230,11 @@ WIFI_CONFIG_START:
                 LED_Control(LED4,Off);
             }
 
-            lst_led_time = get_current_tick();            
+            lst_led_time = current_tick;            
         }
-        
+		
+        //Lora功能处理函数
+        LoraAppTask();
         //与服务器通讯函数
         Uart2AppTask();
         
@@ -268,69 +275,65 @@ WIFI_CONFIG_START:
                 lst_updata_time = get_current_tick();
             }
         }
-		
-        //Lora功能处理函数
-        LoraAppTask();
-        
-        //定时发送LoraTag信息
-        temp_syn_time = get_synchro_time();
-        if(lst_sendtag_time != temp_syn_time)
-        {
-            gateway_sendloratag_t*sendtag_pkt = (gateway_sendloratag_t*)sendloratag_buf;
-            
-            memcpy(&(sendtag_pkt->newimage_header.prefix), btgw_preFix, sizeof(btgw_preFix));
-            sendtag_pkt->newimage_header.version = BEELINKER_PROTOCOL_VER;
-            memcpy(&(sendtag_pkt->newimage_header.devid), btgw_DeviceID, sizeof(btgw_DeviceID));
-            sendtag_pkt->newimage_header.cmd_type = TYPE_UPLOAD;
-            
-            memcpy(&(sendtag_pkt->newimage_ver), &(Gateway_Version), sizeof(image_version_t));
-            sendtag_pkt->newimage_ver.PATCH = ntohs(sendtag_pkt->newimage_ver.PATCH);
-            sendtag_pkt->now_time = htonl(temp_syn_time);
-            sendtag_pkt->loratag_counter = loratag_counter;
-
-            inf_offset += (uint16_t)((uint8_t*)&sendtag_pkt->loratag_counter - (uint8_t*)sendtag_pkt) + 1;
-            for(j = 0; j < loratag_counter; j++)
-            {
-                memcpy((uint8_t*)sendtag_pkt + inf_offset, &loratag_record[j].macaddress[0], 10);
-                inf_offset += 10;
-                memcpy((uint8_t*)sendtag_pkt + inf_offset, loratag_record[j].blebuf_ptr, sizeof(bleinf_record_t)*loratag_record[j].blenum);
-                inf_offset += sizeof(bleinf_record_t)*loratag_record[j].blenum;     
-            }
-            
-
-            if(user_param->net_mode == 0)
-            {
-                LED_Control(LED1,On);
-                LED_Control(LED3,On);	 
-            }
-            else
-            {
-                LED_Control(LED2,On);	 
-                LED_Control(LED4,On);
-            }
-                
-            sendtag_pkt->newimage_header.len = inf_offset-((uint16_t)((uint8_t*)&sendtag_pkt->newimage_header.len  - (uint8_t*)sendtag_pkt)) - sizeof(uint16_t);
-            sendtag_pkt->newimage_header.len = ntohs(sendtag_pkt->newimage_header.len);
-            *((uint8_t*)sendtag_pkt + inf_offset ) = checksum_8(0, (uint8_t*)sendtag_pkt, inf_offset);
-                
-            USART2_SendData((uint8_t*)sendtag_pkt, inf_offset + sizeof(uint8_t));
-            
-            lst_led_time = get_current_tick();
-            detect_over_counter++;
-        
-            lst_sendtag_time = temp_syn_time;
-			
-			//删除LORA_TAG信息
-			inf_offset = 0;
-			
-			if(loratag_counter == 0)
-				lora_rx_check_time ++;			
-			else
+        else
+		{
+			//定时发送LoraTag信息 
+			if((sendLoraTag_Flg == true) || (loratag_counter >= (MAX_LORATAG_COUNTER/2)))
 			{
-				loratag_counter    = 0;
-				lora_rx_check_time = 0;
+				gateway_sendloratag_t*sendtag_pkt = (gateway_sendloratag_t*)sendloratag_buf;
+            
+				memcpy(&(sendtag_pkt->newimage_header.prefix), btgw_preFix, sizeof(btgw_preFix));
+				sendtag_pkt->newimage_header.version = BEELINKER_PROTOCOL_VER;
+				memcpy(&(sendtag_pkt->newimage_header.devid), btgw_DeviceID, sizeof(btgw_DeviceID));
+				sendtag_pkt->newimage_header.cmd_type = TYPE_UPLOAD;
+            
+				memcpy(&(sendtag_pkt->newimage_ver), &(Gateway_Version), sizeof(image_version_t));
+				sendtag_pkt->newimage_ver.PATCH = ntohs(sendtag_pkt->newimage_ver.PATCH);
+				sendtag_pkt->now_time = htonl(get_synchro_time());
+				sendtag_pkt->loratag_counter = loratag_counter;
+
+				inf_offset += (uint16_t)((uint8_t*)&sendtag_pkt->loratag_counter - (uint8_t*)sendtag_pkt) + 1;
+				for(j = 0; j < loratag_counter; j++)
+				{
+					memcpy((uint8_t*)sendtag_pkt + inf_offset, &loratag_record[j].macaddress[0], 10);
+					inf_offset += 10;
+					memcpy((uint8_t*)sendtag_pkt + inf_offset, loratag_record[j].blebuf_ptr, sizeof(bleinf_record_t)*loratag_record[j].blenum);
+					inf_offset += sizeof(bleinf_record_t)*loratag_record[j].blenum;     
+				}
+            
+				if(user_param->net_mode == 0)
+				{
+					LED_Control(LED1,On);
+					LED_Control(LED3,On);	 
+				}
+				else
+				{
+					LED_Control(LED2,On);	 
+					LED_Control(LED4,On);
+				}
+                
+				sendtag_pkt->newimage_header.len = inf_offset-((uint16_t)((uint8_t*)&sendtag_pkt->newimage_header.len  - (uint8_t*)sendtag_pkt)) - sizeof(uint16_t);
+				sendtag_pkt->newimage_header.len = ntohs(sendtag_pkt->newimage_header.len);
+				*((uint8_t*)sendtag_pkt + inf_offset ) = checksum_8(0, (uint8_t*)sendtag_pkt, inf_offset);
+                
+				USART2_SendData((uint8_t*)sendtag_pkt, inf_offset + sizeof(uint8_t));
+            
+				lst_led_time = get_current_tick();
+				detect_over_counter++;
+        			
+				//删除LORA_TAG信息
+				inf_offset = 0;
+				sendLoraTag_Flg = false;
+			
+				if(loratag_counter == 0)
+					lora_rx_check_time ++;			
+				else
+				{
+					loratag_counter    = 0;
+					lora_rx_check_time = 0;
+				}
 			}
-        }
+		}
         
         //检测上传回复命令
         if(select_detect_mode == 0)

@@ -31,7 +31,6 @@ uint8_t btgw_DeviceID[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 #define UPLOAD1_NO_ACK_OVER_TIME    (SYS_TICK_PER_SECOND*30)
 #define UPLOAD2_NO_ACK_OVER_TIME    (SYS_TICK_PER_SECOND*60)
 #define NO_ACK_MAX_COUNTER          (3)
-#define NO_LORATAG_CHECK_COUNTER    (30)
 
 /* Variable -----------------------------------------------------*/
 uint8_t btgw_preFix[] = {'L', 'R', 'G', 'W'};
@@ -42,7 +41,6 @@ uint8_t bltag_sufFix[] = {0x0D, 0x0A};
 uint32_t feed_iwdg_time;
 uint32_t lst_led_time;
 uint32_t lst_updata_time;
-uint8_t lora_rx_check_time;
 int wifi_config_counter = 5;
 
 uint32_t not_detect_ack_time;
@@ -74,6 +72,9 @@ static void ServerRepNewimageCmd(uint8_t cmd, uint8_t*payload_buf, uint16_t payl
 static void ServerSynchroTimeCmd(uint8_t cmd, uint8_t*payload_buf, uint16_t payload_len);
 
 static void LoraAppTask(void);
+
+volatile bool Lora1RFStatus_Flg = false;
+volatile bool Lora2RFStatus_Flg = false;
 /*************************************************
 函数: int main(void)
 功能: main主函数
@@ -147,7 +148,6 @@ int main(void)
 
 	INTERRUPTS_ON();
     LED_Control(LED0,On);
-	
     Nvram_Get_BlkOffset_By_Name("user", &dstblkOffset);
     user_param = (nv_user_param_t *)(CFG_NVRAM_ADDR + dstblkOffset);
     if(user_param->net_mode == 0)
@@ -201,7 +201,6 @@ WIFI_CONFIG_START:
     not_detect_ack_time = get_current_tick();
     not_detect_over_time = UPLOAD1_NO_ACK_OVER_TIME;
     detect_over_counter = 0;
-    lora_rx_check_time  = 0;
 	
     while(1)
     {
@@ -324,14 +323,7 @@ WIFI_CONFIG_START:
 				//删除LORA_TAG信息
 				inf_offset = 0;
 				sendLoraTag_Flg = false;
-			
-				if(loratag_counter == 0)
-					lora_rx_check_time ++;			
-				else
-				{
-					loratag_counter    = 0;
-					lora_rx_check_time = 0;
-				}
+				loratag_counter    = 0;				
 			}
 		}
         
@@ -814,85 +806,123 @@ static uint8_t LoraRxData_Handle(lorainf_mgr_t *mgr)
 返回: 无
 *************************************************/
 static void LoraAppTask(void)
-{		
-	switch(sx1278Lora_1Process())
-	{
-		case RFLR_STATE_RX_DONE:	
-			lora1inf_mgr.rxbuf = (uint8_t *)sx1278Lora_1GetRxData(&lora1inf_mgr.rxsize );
-			break;
-		
-		case RFLR_STATE_TX_RUNNING:
-			if(lora1inf_mgr.txflg == false)
-			{
-				sx1278Lora_1RFSendBuf(lora1inf_mgr.txbuf, lora1inf_mgr.txsize);
-				lora1inf_mgr.txsize = 0;
-				lora1inf_mgr.txflg = true;
-			}
-			break;
-			
-		case RFLR_STATE_TX_DONE:
-			lora1inf_mgr.txflg = false;
-			sx1278Lora_1SetRFStatus(RFLR_STATE_RX_INIT);
-			break;
-		
-		default:
-			break;		
-	}
-		
-	switch(sx1278Lora_2Process())
-	{	
-		case RFLR_STATE_RX_DONE:
-			lora2inf_mgr.rxbuf = (uint8_t *)sx1278Lora_2GetRxData(&lora2inf_mgr.rxsize );	
-			break;
-			
-		case RFLR_STATE_TX_RUNNING:
-			if(lora2inf_mgr.txflg == false)
-			{
-				sx1278Lora_2RFSendBuf(lora2inf_mgr.txbuf, lora2inf_mgr.txsize);
-				lora2inf_mgr.txsize = 0;
-				lora2inf_mgr.txflg = true;
-			}
-			break;
-			
-		case RFLR_STATE_TX_DONE:
-			lora2inf_mgr.txflg = false;
-			sx1278Lora_2SetRFStatus(RFLR_STATE_RX_INIT);
-			break;
-		
-		default:
-			break;			
-	}
+{	
+	uint8_t	res;
+	uint8_t i = 0;
 	
-	if(lora1inf_mgr.rxsize != 0)
-	{
-		if(lora1inf_mgr.rxbuf != NULL)
-		{	
-			lora1inf_mgr.txbuf = lora1_RFTXbuf; 	
-			LoraRxData_Handle(&lora1inf_mgr);
-			
-			if(lora1inf_mgr.txsize !=0)	
-				sx1278Lora_1SetRFStatus(RFLR_STATE_TX_INIT);			
-		}	
-		lora1inf_mgr.rxsize = 0;
-	}
-	
-	if(lora2inf_mgr.rxsize != 0)
-	{
-		if(lora2inf_mgr.rxbuf != NULL)
+	if(Lora1RFStatus_Flg)
+	{    
+		res = sx1278Lora_1GetRFStatus();
+		
+		i=0;
+		
+		if(RFLR_STATE_RX_RUNNING == res)
 		{
-			lora2inf_mgr.txbuf = lora2_RFTXbuf; 
-			LoraRxData_Handle(&lora2inf_mgr);
+			while(sx1278Lora_1Process() != RFLR_STATE_RX_DONE)
+			{
+				//超时50ms自动跳出
+				if(i < 5)
+				{							
+					delay_ms(1);					
+					i++;
+				}
+				else
+					break;		    
+			}
+			lora1inf_mgr.rxbuf = (uint8_t *)sx1278Lora_1GetRxData(&lora1inf_mgr.rxsize );
+			if(lora1inf_mgr.rxsize != 0)
+			{
+				if(lora1inf_mgr.rxbuf != NULL)
+				{	
+					lora1inf_mgr.txbuf = lora1_RFTXbuf; 	
+					LoraRxData_Handle(&lora1inf_mgr);
+			
+					if(lora1inf_mgr.txsize !=0)
+					{
+						sx1278Lora_1EntryTx();
+						delay_ms(5);
+						sx1278Lora_1SetRFStatus(RFLR_STATE_TX_RUNNING);
+						sx1278Lora_1RFSendBuf(lora1inf_mgr.txbuf, lora1inf_mgr.txsize);
+					}						
+				}	
+				lora1inf_mgr.rxsize = 0;
+			}		    
+		}
+		else if(RFLR_STATE_TX_RUNNING == res)
+		{
+			while(sx1278Lora_1Process() != RFLR_STATE_TX_DONE)
+			{
+				//超时50ms自动跳出
+				if(i < 5)
+				{							
+					delay_ms(1);					
+					i++;
+				}
+				else
+					break;		    
+			}
+			sx1278Lora_1EntryRx();	
+			sx1278Lora_1SetRFStatus(RFLR_STATE_RX_RUNNING);	
+		}
 		
-			if(lora2inf_mgr.txsize !=0)	
-				sx1278Lora_2SetRFStatus(RFLR_STATE_TX_INIT);
-		}	
-		lora2inf_mgr.rxsize = 0;
-	}
-	
-	if(lora_rx_check_time > NO_LORATAG_CHECK_COUNTER)
-	{
-		lora_rx_check_time = 0;
-		sx1278Lora_1SetRFStatus(RFLR_STATE_RX_INIT);
-		sx1278Lora_2SetRFStatus(RFLR_STATE_RX_INIT);
-	}
+		Lora1RFStatus_Flg = false;
+	}		
+
+	if(Lora2RFStatus_Flg)
+	{    
+		res = sx1278Lora_2GetRFStatus();
+		
+		i=0;
+		
+		if(RFLR_STATE_RX_RUNNING == res)
+		{
+			while(sx1278Lora_2Process() != RFLR_STATE_RX_DONE)
+			{
+				//超时50ms自动跳出
+				if(i < 5)
+				{							
+					delay_ms(1);					
+					i++;
+				}
+				else
+					break;		    
+			}
+			lora2inf_mgr.rxbuf = (uint8_t *)sx1278Lora_2GetRxData(&lora2inf_mgr.rxsize );
+			if(lora2inf_mgr.rxsize != 0)
+			{
+				if(lora2inf_mgr.rxbuf != NULL)
+				{	
+					lora2inf_mgr.txbuf = lora2_RFTXbuf; 	
+					LoraRxData_Handle(&lora2inf_mgr);
+			
+					if(lora2inf_mgr.txsize !=0)
+					{
+						sx1278Lora_2EntryTx();
+						delay_ms(5);
+						sx1278Lora_2SetRFStatus(RFLR_STATE_TX_RUNNING);
+						sx1278Lora_2RFSendBuf(lora2inf_mgr.txbuf, lora2inf_mgr.txsize);
+					}						
+				}	
+				lora2inf_mgr.rxsize = 0;
+			}		    
+		}
+		else if(RFLR_STATE_TX_RUNNING == res)
+		{
+			while(sx1278Lora_2Process() != RFLR_STATE_TX_DONE)
+			{
+				//超时50ms自动跳出
+				if(i < 5)
+				{							
+					delay_ms(1);					
+					i++;
+				}
+				else
+					break;		    
+			}
+			sx1278Lora_2EntryRx();	
+			sx1278Lora_2SetRFStatus(RFLR_STATE_RX_RUNNING);			
+		}
+		
+		Lora2RFStatus_Flg = false;
+	}    
 }

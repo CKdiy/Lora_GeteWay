@@ -147,11 +147,11 @@ const int32_t HoppingFrequencies[] =
 // Default settings
 tLoRaSettings LoRaSettings =
 {
-    434000000,        // RFFrequency
+    470000000,        // RFFrequency
     20,                // Power
     7,                // SignalBw [0: 7.8kHz, 1: 10.4 kHz, 2: 15.6 kHz, 3: 20.8 kHz, 4: 31.2 kHz,
                       // 5: 41.6 kHz, 6: 62.5 kHz, 7: 125 kHz, 8: 250 kHz, 9: 500 kHz, other: Reserved]
-    10,                // SpreadingFactor [6: 64, 7: 128, 8: 256, 9: 512, 10: 1024, 11: 2048, 12: 4096  chips]
+    7,                // SpreadingFactor [6: 64, 7: 128, 8: 256, 9: 512, 10: 1024, 11: 2048, 12: 4096  chips]
     2,                // ErrorCoding [1: 4/5, 2: 4/6, 3: 4/7, 4: 4/8]
     true,             // CrcOn [0: OFF, 1: ON]
     false,            // ImplicitHeaderOn [0: OFF, 1: ON]
@@ -287,7 +287,8 @@ void sx1278_1SetLoRaOn(bool enable)
         sx1278Lora_1SetOpMode( RFLR_OPMODE_STANDBY );  
     }
 	
-	RFLRState = RFLR_STATE_RX_INIT;
+	sx1278Lora_1EntryRx();
+	RFLRState = RFLR_STATE_RX_RUNNING;
 }
 
 static void sx1278Lora_1SetParameters(void)
@@ -658,19 +659,13 @@ tRFLRStates  sx1278Lora_1Process(void)
 				{ 	
 					// Clear Irq
 					sx1278_1WriteData( REG_LR_IRQFLAGS, RFLR_IRQFLAGS_TXDONE);
-					RFLRState = RFLR_STATE_TX_DONE; 
+					sx1278Lora_1SetOpMode( RFLR_OPMODE_STANDBY );
+					result =  RFLR_STATE_TX_DONE;
 				}
 				else
 					result = RFLR_STATE_TX_RUNNING; 
 			}
 			break;
-		
-		case RFLR_STATE_TX_DONE:
-		    // optimize the power consumption by switching off the transmitter as soon as the packet has been sent
-        	sx1278Lora_1SetOpMode( RFLR_OPMODE_STANDBY );
-        	RFLRState = RFLR_STATE_IDLE;
-			result =  RFLR_STATE_TX_DONE;
-		  	break;
 		
 		case RFLR_STATE_RX_INIT:
 			sx1278Lora_1EntryRx();
@@ -814,6 +809,11 @@ void sx1278Lora_1SetRFStatus(tRFLRStates st)
 	RFLRState = st;
 }
 
+uint8_t sx1278Lora_1GetRFStatus(void)
+{
+	return RFLRState;  
+}
+
 void *sx1278Lora_1GetRxData(uint8_t *size)
 {
 	*size = RxPacketSize;
@@ -824,13 +824,16 @@ void *sx1278Lora_1GetRxData(uint8_t *size)
 
 void sx1278_1PinInit(void)
 {
-	GPIO_InitTypeDef GPIO_InitStructure;
+	GPIO_InitTypeDef   GPIO_InitStructure;
+	EXTI_InitTypeDef   EXTI_InitStructure;
+	NVIC_InitTypeDef   NVIC_InitStructure;
+	
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC|RCC_APB2Periph_AFIO,ENABLE);
 	
 	GPIO_InitStructure.GPIO_Pin = SX12781_DIO0_PIN;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;  		
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;  		
 	GPIO_Init(SX12781_DIO0_PORT, &GPIO_InitStructure);
-
+	
 	GPIO_InitStructure.GPIO_Pin = SX12781_RESET_PIN;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;  		
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
@@ -839,6 +842,22 @@ void sx1278_1PinInit(void)
 	GPIO_ResetBits(SX12781_RESET_PORT, SX12781_RESET_PIN);
 	delay_ms(50);
 	GPIO_SetBits(SX12781_RESET_PORT, SX12781_RESET_PIN);
+	
+	GPIO_EXTILineConfig(GPIO_PortSourceGPIOC, GPIO_PinSource6);
+	
+	/* Configure EXTI0 line */
+	EXTI_InitStructure.EXTI_Line = EXTI_Line6;
+	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;  
+	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+	EXTI_Init(&EXTI_InitStructure);
+
+	/* Enable and set EXTI0 Interrupt to the lowest priority */
+	NVIC_InitStructure.NVIC_IRQChannel = EXTI9_5_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 5;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);		
 }
 
 uint8_t Read_sx1278_1Dio0_Pin(void)

@@ -24,6 +24,9 @@
 #include "stm32f10x_it.h"
 #include "main.h"
 
+extern volatile bool Lora1RFStatus_Flg;
+extern volatile bool Lora2RFStatus_Flg;
+
 /** @addtogroup STM32F10x_StdPeriph_Template
   * @{
   */
@@ -139,6 +142,30 @@ void SysTick_Handler(void)
 {
 }
 
+/**
+  * @brief  This function handles External line 0 interrupt request.
+  * @param  None
+  * @retval None
+  */
+void EXTI9_5_IRQHandler(void)
+{
+  if(EXTI_GetITStatus(EXTI_Line6) != RESET)
+  {
+	Lora1RFStatus_Flg = true;
+	/* Clear the  EXTI line 0 pending bit */
+	EXTI_ClearITPendingBit(EXTI_Line6);
+  }
+}
+
+void EXTI15_10_IRQHandler(void)
+{
+  if(EXTI_GetITStatus(EXTI_Line10) != RESET)
+  {
+	Lora2RFStatus_Flg = true;
+	/* Clear the  EXTI line 0 pending bit */
+	EXTI_ClearITPendingBit(EXTI_Line10);  
+  }
+}
 /******************************************************************************/
 /*                 STM32F10x Peripherals Interrupt Handlers                   */
 /*  Add here the Interrupt Handler for the used peripheral(s) (PPP), for the  */

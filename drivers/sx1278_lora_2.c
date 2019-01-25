@@ -111,8 +111,8 @@ void sx1278_2Init(void)
 {
 	SX1278LR_2 = (tSX1276LR *)SX1278Regs;
 	
-	Spi1_Configuration();
 	sx1278_2PinInit();
+	Spi1_Configuration();
 	
 	LoRaOn = true;
 	sx1278_2SetLoRaOn(LoRaOn);  
@@ -198,7 +198,8 @@ void sx1278_2SetLoRaOn(bool enable)
         sx1278Lora_2SetOpMode( RFLR_OPMODE_STANDBY );  
     }
 	
-	RFLRState = RFLR_STATE_RX_INIT;
+	sx1278Lora_2EntryRx();
+	RFLRState = RFLR_STATE_RX_RUNNING;
 }
 
 static void sx1278Lora_2SetParameters(void)
@@ -558,6 +559,7 @@ tRFLRStates  sx1278Lora_2Process(void)
 		case RFLR_STATE_TX_INIT:
 			sx1278Lora_2EntryTx();
 			RFLRState = RFLR_STATE_TX_RUNNING;
+			result = RFLR_STATE_TX_RUNNING;
 		    break;
 		
 	  	case RFLR_STATE_TX_RUNNING:
@@ -570,19 +572,13 @@ tRFLRStates  sx1278Lora_2Process(void)
 				{				  			
 					// Clear Irq
 					sx1278_2WriteData( REG_LR_IRQFLAGS, RFLR_IRQFLAGS_TXDONE);
-					RFLRState = RFLR_STATE_TX_DONE; 
+					sx1278Lora_2SetOpMode( RFLR_OPMODE_STANDBY );
+					result = RFLR_STATE_TX_DONE; 
 				}
 				else
 					result = RFLR_STATE_TX_RUNNING;
 			}
-			break;
-		
-		case RFLR_STATE_TX_DONE:
-		    // optimize the power consumption by switching off the transmitter as soon as the packet has been sent
-        	sx1278Lora_2SetOpMode( RFLR_OPMODE_STANDBY );
-        	RFLRState = RFLR_STATE_IDLE;
-			result =  RFLR_STATE_TX_DONE;
-		  	break;
+			break;		
 		
 		case RFLR_STATE_RX_INIT:
 			sx1278Lora_2EntryRx();
@@ -725,6 +721,11 @@ void sx1278Lora_2SetRFStatus(tRFLRStates st)
 	RFLRState = st;
 }
 
+uint8_t sx1278Lora_2GetRFStatus(void)
+{
+	return RFLRState;  
+}
+
 void *sx1278Lora_2GetRxData(uint8_t *size)
 {
 	*size = RxPacketSize;
@@ -736,10 +737,13 @@ void *sx1278Lora_2GetRxData(uint8_t *size)
 void sx1278_2PinInit(void)
 {
 	GPIO_InitTypeDef GPIO_InitStructure;
+	EXTI_InitTypeDef   EXTI_InitStructure;
+	NVIC_InitTypeDef   NVIC_InitStructure;
+	
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB|RCC_APB2Periph_AFIO, ENABLE);
 	
 	GPIO_InitStructure.GPIO_Pin = SX12782_DIO0_PIN;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;  		
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;  		
 	GPIO_Init(SX12782_DIO0_PORT, &GPIO_InitStructure);
 
 	GPIO_InitStructure.GPIO_Pin = SX12782_RESET_PIN;
@@ -750,6 +754,22 @@ void sx1278_2PinInit(void)
 	GPIO_ResetBits(SX12782_RESET_PORT, SX12782_RESET_PIN);
 	delay_ms(50);
 	GPIO_SetBits(SX12782_RESET_PORT, SX12782_RESET_PIN);
+	
+	GPIO_EXTILineConfig(GPIO_PortSourceGPIOB, GPIO_PinSource10);
+	
+	/* Configure EXTI0 line */
+	EXTI_InitStructure.EXTI_Line = EXTI_Line10;
+	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;  
+	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+	EXTI_Init(&EXTI_InitStructure);
+
+	/* Enable and set EXTI0 Interrupt to the lowest priority */
+	NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 5;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);	
 }
 
 uint8_t Read_sx1278_2Dio0_Pin(void)

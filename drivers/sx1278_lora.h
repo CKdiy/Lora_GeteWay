@@ -842,14 +842,17 @@ tRFLRStates sx1278Lora_1Process(void);
 uint8_t sx1278Lora_1GetOpMode( void );
 void *sx1278Lora_1GetRxData(uint8_t *size);
 void sx1278Lora_1SetRFStatus(tRFLRStates st);
+uint8_t sx1278Lora_1GetRFStatus(void);
 
 void sx1278_2Init(void);
 void sx1278Lora_2EntryTx(void);
+void sx1278Lora_2EntryRx(void);
 bool sx1278Lora_2RFSendBuf( uint8_t *txBuf, size_t txLen);
 tRFLRStates sx1278Lora_2Process(void);
 uint8_t sx1278Lora_2GetOpMode( void );
 void *sx1278Lora_2GetRxData(uint8_t *size);
 void sx1278Lora_2SetRFStatus(tRFLRStates st);
+uint8_t sx1278Lora_2GetRFStatus(void);
 
 #ifdef __cplusplus
 }

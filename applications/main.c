@@ -79,6 +79,7 @@ static void ServerRepNewimageCmd(uint8_t cmd, uint8_t*payload_buf, uint16_t payl
 static void ServerSynchroTimeCmd(uint8_t cmd, uint8_t*payload_buf, uint16_t payload_len);
 
 static void LoraAppTask(void);
+static void GetUserLoraPara( nv_user_param_t *ptr);
 
 volatile bool Lora1RFStatus_Flg = false;
 volatile bool Lora2RFStatus_Flg = false;
@@ -114,8 +115,6 @@ int main(void)
 	//Lora模块初始化
     sx1278_1Init();
     sx1278_2Init();
-    sx1278_1SetLoraPara(NULL);
-    sx1278_2SetLoraPara(NULL);
 //    lora1inf_mgr.rxbuf = (uint8_t *)testbuf;
 //	lora1inf_mgr.rxsize = sizeof(testbuf);
 	
@@ -159,6 +158,12 @@ int main(void)
     LED_Control(LED0,On);
     Nvram_Get_BlkOffset_By_Name("user", &dstblkOffset);
     user_param = (nv_user_param_t *)(CFG_NVRAM_ADDR + dstblkOffset);
+	
+    /* Set Lora Para */
+    GetUserLoraPara(user_param);
+    sx1278_1SetLoraPara(userLora1Para);
+    sx1278_2SetLoraPara(userLora2Para);
+	
     if(user_param->net_mode == 0)
     {
         LED_Control(STN_RST,Off);
@@ -880,3 +885,75 @@ static void LoraAppTask(void)
 		Lora2RFStatus_Flg = false;
 	}    
 }
+
+/*************************************************
+函数: static void LoraAppTask(void)
+功能: 处理与Lora相关的进程
+参数: 无
+返回: 无
+*************************************************/
+static void GetUserLoraPara( nv_user_param_t *ptr)
+{	
+	if( ptr == NULL)
+		return;
+	
+	userLora1Para = ( LoRaSettings_t *)sendloratag_buf;
+	userLora2Para = ( LoRaSettings_t *)(sendloratag_buf + 50);
+	
+	if(ptr->lora_1para.bit_t.power == 1)
+	{
+		userLora1Para->Power = 20;
+	}
+			
+	if( ptr->lora_1para.bit_t.rate == 1)
+	{
+		userLora1Para->Coderate = 2;
+	}	
+	
+	if(ptr->lora_2para.bit_t.channel == 1)
+	{
+		userLora1Para->Channel = 470000000;
+	}
+	
+		if(ptr->lora_2para.bit_t.power == 1)
+	{
+		userLora1Para->Power = 20;
+	}
+			
+	if( ptr->lora_2para.bit_t.rate == 1)
+	{
+		userLora1Para->Coderate = 2;
+	}	
+	
+	if(ptr->lora_2para.bit_t.channel == 1)
+	{
+		userLora2Para->Channel = 434000000;
+	}
+	
+	/* Test Para */
+	userLora1Para->Bandwidth             = 7;
+	userLora1Para->Sf                    = 9;
+	userLora1Para->PreambleLen           = 8;
+	userLora1Para->LowDatarateOptimize   = false;
+	userLora1Para->FixLen                = 0;
+	userLora1Para->PayloadLen            = 64;
+	userLora1Para->CrcOn                 = true;
+	userLora1Para->FreqHopOn             = false;
+	userLora1Para->HopPeriod             = 0;
+	userLora1Para->IqInverted            = true;
+	userLora1Para->RxContinuous          = true;	
+    
+	/* Test Para */
+	userLora2Para->Bandwidth             = 7;
+	userLora2Para->Sf                    = 9;
+	userLora2Para->PreambleLen           = 8;
+	userLora2Para->LowDatarateOptimize   = false;
+	userLora2Para->FixLen                = 0;
+	userLora2Para->PayloadLen            = 64;
+	userLora2Para->CrcOn                 = true;
+	userLora2Para->FreqHopOn             = false;
+	userLora2Para->HopPeriod             = 0;
+	userLora2Para->IqInverted            = true;
+	userLora2Para->RxContinuous          = true;
+
+}	

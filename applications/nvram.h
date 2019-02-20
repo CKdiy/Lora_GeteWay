@@ -13,6 +13,21 @@
 #define SERVER_IP_DOMAIN_MAXLEN     64
 #define BLK_NAME_SIZE               8
 
+/**
+ *  lora union
+ */
+typedef union 
+{
+	struct
+	{
+		uint8_t    power      :8;  // Bit15~Bit8 Lora Power
+		uint8_t    channel    :5;  // Bit4~Bit0  channel
+		uint8_t    rate       :3;  // Bit7~Bit5  rate
+	}bit_t;
+	
+	uint16_t    loraPara;
+}lora_para_n;
+
 typedef struct
 {
     uint32_t    crc32;
@@ -23,6 +38,8 @@ typedef struct
     char sip[SERVER_IP_DOMAIN_MAXLEN];      //server ip or server domain
     uint16_t    port;  
     uint8_t     net_mode; 
+    lora_para_n lora_1para;
+    lora_para_n lora_2para;
 }nv_user_param_t;
 
 #define UID_CRYPTO_LEN              32

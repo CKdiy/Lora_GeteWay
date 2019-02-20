@@ -205,6 +205,12 @@ int Nvram_Block_Init(char *name)
         strcpy(pblk->sip, "139.196.197.176");
         pblk->port = 10680;
         pblk->net_mode = 0;
+        pblk->lora_1para.bit_t.channel = 1;
+        pblk->lora_1para.bit_t.power   = 1;
+        pblk->lora_1para.bit_t.rate    = 1;
+        pblk->lora_2para.bit_t.channel = 1;
+        pblk->lora_2para.bit_t.power   = 1;
+        pblk->lora_2para.bit_t.rate    = 1;
     }
     
     *(uint32_t *)tmpblk = crc32(0, ptr, BLK_MAX_SIZE-sizeof(uint32_t));

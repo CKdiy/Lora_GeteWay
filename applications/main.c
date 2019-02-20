@@ -64,6 +64,13 @@ static lorainf_mgr_t  lora1inf_mgr;
 static lorainf_mgr_t  lora2inf_mgr;
 extern volatile bool sendLoraTag_Flg;
 
+/* Lora Para */
+extern SX1276_t    SX12781;
+extern SX1276_t    SX12782;
+
+LoRaSettings_t *userLora1Para = NULL;
+LoRaSettings_t *userLora2Para = NULL;
+
 /* Function -----------------------------------------------------*/
 static void Uart2AppTask(void);
 static void ServerUploadResponseCmd(uint8_t cmd, uint8_t*payload_buf, uint16_t payload_len);
@@ -107,6 +114,8 @@ int main(void)
 	//Lora模块初始化
     sx1278_1Init();
     sx1278_2Init();
+    sx1278_1SetLoraPara(NULL);
+    sx1278_2SetLoraPara(NULL);
 //    lora1inf_mgr.rxbuf = (uint8_t *)testbuf;
 //	lora1inf_mgr.rxsize = sizeof(testbuf);
 	
@@ -195,6 +204,8 @@ WIFI_CONFIG_START:
     
 	//重新计时
 	Timer4_Rstart();
+	sx1278_1EnterRx();
+	sx1278_2EnterRx();
 	
     //初始化检测变量
     select_detect_mode = 0;
@@ -807,29 +818,13 @@ static uint8_t LoraRxData_Handle(lorainf_mgr_t *mgr)
 *************************************************/
 static void LoraAppTask(void)
 {	
-	uint8_t	res;
-	uint8_t i = 0;
-	
 	if(Lora1RFStatus_Flg)
 	{    
-		res = sx1278Lora_1GetRFStatus();
-		
-		i=0;
-		
-		if(RFLR_STATE_RX_RUNNING == res)
+		if(SX12781.State == RF_RX_RUNNING)
 		{
-			while(sx1278Lora_1Process() != RFLR_STATE_RX_DONE)
-			{
-				//超时50ms自动跳出
-				if(i < 5)
-				{							
-					delay_ms(1);					
-					i++;
-				}
-				else
-					break;		    
-			}
-			lora1inf_mgr.rxbuf = (uint8_t *)sx1278Lora_1GetRxData(&lora1inf_mgr.rxsize );
+			sx1278_1ReadRxPkt();
+		
+			lora1inf_mgr.rxbuf = (uint8_t *)sx1278_1GetRxData(&lora1inf_mgr.rxsize );
 			if(lora1inf_mgr.rxsize != 0)
 			{
 				if(lora1inf_mgr.rxbuf != NULL)
@@ -839,30 +834,16 @@ static void LoraAppTask(void)
 			
 					if(lora1inf_mgr.txsize !=0)
 					{
-						sx1278Lora_1EntryTx();
-						delay_ms(5);
-						sx1278Lora_1SetRFStatus(RFLR_STATE_TX_RUNNING);
-						sx1278Lora_1RFSendBuf(lora1inf_mgr.txbuf, lora1inf_mgr.txsize);
+						sx1278_1SendBuf(lora1inf_mgr.txbuf, lora1inf_mgr.txsize);
 					}						
 				}	
 				lora1inf_mgr.rxsize = 0;
 			}		    
 		}
-		else if(RFLR_STATE_TX_RUNNING == res)
+		else if(SX12781.State == RF_TX_RUNNING)
 		{
-			while(sx1278Lora_1Process() != RFLR_STATE_TX_DONE)
-			{
-				//超时50ms自动跳出
-				if(i < 5)
-				{							
-					delay_ms(1);					
-					i++;
-				}
-				else
-					break;		    
-			}
-			sx1278Lora_1EntryRx();	
-			sx1278Lora_1SetRFStatus(RFLR_STATE_RX_RUNNING);	
+			sx1278_1TxDoneCallback();
+			sx1278_1EnterRx();	
 		}
 		
 		Lora1RFStatus_Flg = false;
@@ -870,24 +851,11 @@ static void LoraAppTask(void)
 
 	if(Lora2RFStatus_Flg)
 	{    
-		res = sx1278Lora_2GetRFStatus();
-		
-		i=0;
-		
-		if(RFLR_STATE_RX_RUNNING == res)
+		if(SX12782.State == RF_RX_RUNNING)
 		{
-			while(sx1278Lora_2Process() != RFLR_STATE_RX_DONE)
-			{
-				//超时50ms自动跳出
-				if(i < 5)
-				{							
-					delay_ms(1);					
-					i++;
-				}
-				else
-					break;		    
-			}
-			lora2inf_mgr.rxbuf = (uint8_t *)sx1278Lora_2GetRxData(&lora2inf_mgr.rxsize );
+			sx1278_2ReadRxPkt();
+			
+			lora2inf_mgr.rxbuf = (uint8_t *)sx1278_2GetRxData(&lora2inf_mgr.rxsize );
 			if(lora2inf_mgr.rxsize != 0)
 			{
 				if(lora2inf_mgr.rxbuf != NULL)
@@ -897,30 +865,16 @@ static void LoraAppTask(void)
 			
 					if(lora2inf_mgr.txsize !=0)
 					{
-						sx1278Lora_2EntryTx();
-						delay_ms(5);
-						sx1278Lora_2SetRFStatus(RFLR_STATE_TX_RUNNING);
-						sx1278Lora_2RFSendBuf(lora2inf_mgr.txbuf, lora2inf_mgr.txsize);
+						sx1278_2SendBuf(lora2inf_mgr.txbuf, lora2inf_mgr.txsize);
 					}						
 				}	
 				lora2inf_mgr.rxsize = 0;
 			}		    
 		}
-		else if(RFLR_STATE_TX_RUNNING == res)
+		else if(SX12782.State == RF_TX_RUNNING)
 		{
-			while(sx1278Lora_2Process() != RFLR_STATE_TX_DONE)
-			{
-				//超时50ms自动跳出
-				if(i < 5)
-				{							
-					delay_ms(1);					
-					i++;
-				}
-				else
-					break;		    
-			}
-			sx1278Lora_2EntryRx();	
-			sx1278Lora_2SetRFStatus(RFLR_STATE_RX_RUNNING);			
+			sx1278_2TxDoneCallback();
+			sx1278_2EnterRx();			
 		}
 		
 		Lora2RFStatus_Flg = false;

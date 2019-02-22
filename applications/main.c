@@ -35,8 +35,8 @@ uint8_t btgw_DeviceID[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 /* Variable -----------------------------------------------------*/
 uint8_t btgw_preFix[] = {'L', 'R', 'G', 'W'};
 
-uint8_t bltag_preFix[] = {0xFE, 0xBE};
-uint8_t bltag_sufFix[] = {0x0D, 0x0A};
+const uint8_t bltag_preFix = 0xFE;
+const uint8_t bltag_sufFix = 0xBE;
 
 uint32_t feed_iwdg_time;
 uint32_t lst_led_time;
@@ -57,8 +57,8 @@ uint32_t req_next_addr;
 
 uint8_t  loratag_counter = 0;
 loratg_record_t loratag_record[MAX_LORATAG_COUNTER];
-bleinf_record_t bleinf_record[MAX_LORATAG_COUNTER];   
-uint8_t lorataglist[6*MAX_LORATAG_COUNTER];
+bleinf_record_t bleinf_record[MAX_LORATAG_COUNTER*4];   
+uint8_t lorataglist[2*MAX_LORATAG_COUNTER];
 uint8_t  sendloratag_buf[300];
 static lorainf_mgr_t  lora1inf_mgr;
 static lorainf_mgr_t  lora2inf_mgr;
@@ -92,8 +92,10 @@ volatile bool Lora2RFStatus_Flg = false;
 int main(void)
 {
     uint16_t j = 0, inf_offset = 0;
+    uint8_t bleInf_offset;
     uint32_t current_tick;
     uint16_t dstblkOffset;
+    uint16_t tagpktinf;
     nv_user_param_t *user_param;
     
     //MCU时钟初始化
@@ -161,7 +163,7 @@ int main(void)
 	
     /* Set Lora Para */
     GetUserLoraPara(user_param);
-    sx1278_1SetLoraPara(userLora1Para);
+    sx1278_1SetLoraPara(NULL);
     sx1278_2SetLoraPara(userLora2Para);
 	
     if(user_param->net_mode == 0)
@@ -310,10 +312,26 @@ WIFI_CONFIG_START:
 				inf_offset += (uint16_t)((uint8_t*)&sendtag_pkt->loratag_counter - (uint8_t*)sendtag_pkt) + 1;
 				for(j = 0; j < loratag_counter; j++)
 				{
-					memcpy((uint8_t*)sendtag_pkt + inf_offset, &loratag_record[j].macaddress[0], 10);
-					inf_offset += 10;
-					memcpy((uint8_t*)sendtag_pkt + inf_offset, loratag_record[j].blebuf_ptr, sizeof(bleinf_record_t)*loratag_record[j].blenum);
-					inf_offset += sizeof(bleinf_record_t)*loratag_record[j].blenum;     
+					memcpy((uint8_t*)sendtag_pkt + inf_offset, &loratag_record[j].devId[0], sizeof(uint16_t));
+					inf_offset += sizeof(uint16_t);
+					tagpktinf = 0;
+					tagpktinf |= loratag_record[j].device_up_inf.bit_t.vbat         << 15; 
+					tagpktinf |= loratag_record[j].device_up_inf.bit_t.sos          << 14; 
+					tagpktinf |= loratag_record[j].device_up_inf.bit_t.acflag       << 12;
+					tagpktinf |= loratag_record[j].device_up_inf.bit_t.beaconNum_4  << 9 ; 
+					tagpktinf |= loratag_record[j].device_up_inf.bit_t.beaconNum_3  << 6 ; 
+					tagpktinf |= loratag_record[j].device_up_inf.bit_t.beaconNum_2  << 3 ; 
+					tagpktinf |= loratag_record[j].device_up_inf.bit_t.beaconNum_1  << 0 ; 
+					tagpktinf = ntohs(tagpktinf);
+					memcpy((uint8_t*)sendtag_pkt + inf_offset, &tagpktinf, sizeof(tagpktinf));
+					inf_offset += sizeof(tagpktinf);
+					
+					bleInf_offset = ( loratag_record[j].device_up_inf.bit_t.beaconNum_1 +
+					                  loratag_record[j].device_up_inf.bit_t.beaconNum_2 +
+					                  loratag_record[j].device_up_inf.bit_t.beaconNum_3 +
+					                  loratag_record[j].device_up_inf.bit_t.beaconNum_4 ) * sizeof(bleinf_record_t);       
+					memcpy((uint8_t *)sendtag_pkt + inf_offset, (uint8_t *)loratag_record[j].blebuf_ptr, bleInf_offset);
+					inf_offset += bleInf_offset;     
 				}
             
 				if(user_param->net_mode == 0)
@@ -327,7 +345,7 @@ WIFI_CONFIG_START:
 					LED_Control(LED4,On);
 				}
                 
-				sendtag_pkt->newimage_header.len = inf_offset-((uint16_t)((uint8_t*)&sendtag_pkt->newimage_header.len  - (uint8_t*)sendtag_pkt)) - sizeof(uint16_t);
+				sendtag_pkt->newimage_header.len = inf_offset-((uint8_t*)&sendtag_pkt->newimage_header.len  - (uint8_t*)sendtag_pkt + sizeof(uint16_t));
 				sendtag_pkt->newimage_header.len = ntohs(sendtag_pkt->newimage_header.len);
 				*((uint8_t*)sendtag_pkt + inf_offset ) = checksum_8(0, (uint8_t*)sendtag_pkt, inf_offset);
                 
@@ -641,7 +659,7 @@ static void ServerSynchroTimeCmd(uint8_t cmd, uint8_t*payload_buf, uint16_t payl
 }
 
 /***********************Lora功能处理函数*************************/
-#define BL_MAX_RXDATA_LEN        45
+#define BL_MAX_RXDATA_LEN        55
 #define BL_MAX_TXDATA_LEN        25
 uint8_t lora_RFRXbuf[BL_MAX_RXDATA_LEN];
 uint8_t lora1_RFTXbuf[BL_MAX_TXDATA_LEN];
@@ -652,7 +670,7 @@ uint8_t lora2_RFTXbuf[BL_MAX_TXDATA_LEN];
 参数: 设备MAC地址指针，地址长度
 返回: true or false
 *************************************************/
-#define LORATAT_MACADDRE_LEN    6
+#define LORATAT_MACADDRE_LEN    2
 static bool Loratag_Addlist(uint8_t *macaddress , uint8_t length)
 {
 	uint8_t i;
@@ -684,26 +702,28 @@ static uint8_t LoraTagInf_Resp(uint8_t *txbuf)
 	uint8_t *ptr;
 	uint8_t count;
 	
-	if(!txbuf)
+	loratag_pkt_hdr_t payload_inf;
+	
+	if(txbuf == NULL)
 		return 0;
 	
 	ptr = txbuf;
 	
-	memcpy(ptr, bltag_preFix, sizeof(bltag_preFix));
-	ptr += sizeof(bltag_preFix);
+	payload_inf.pre = bltag_sufFix;
 	
-	*ptr++ = TYPE_LORATAUPRESP; 
+	payload_inf.payload_inf.bit_t.pkt_type = TYPE_LORATAGUP;
 	
-	*ptr++ = LORATAT_MACADDRE_LEN;
+	//if()
+	payload_inf.payload_inf.bit_t.pkt_len = sizeof(uint16_t);
+		
+	memcpy(ptr , &payload_inf.pre, sizeof(bltag_sufFix) + sizeof(payload_inf_n));
+	ptr += sizeof(bltag_sufFix) + sizeof(payload_inf_n);
 	
 	memcpy(ptr, &lorataglist[loratag_counter-1], LORATAT_MACADDRE_LEN);
 	ptr += LORATAT_MACADDRE_LEN;
     
-    *ptr++ = checksum_8(0, txbuf+sizeof(bltag_preFix), LORATAT_MACADDRE_LEN+sizeof(uint16_t));	
+	*ptr++ = checksum_8(0, txbuf + sizeof(bltag_sufFix), LORATAT_MACADDRE_LEN + sizeof(payload_inf_n));	
     
-	memcpy(ptr, bltag_sufFix, sizeof(bltag_sufFix));
-	ptr += sizeof(bltag_sufFix);
-	
 	count = ptr - txbuf;
 	
 	return count;
@@ -719,22 +739,46 @@ static uint8_t LoraTagInf_Cmd(uint8_t *payload, uint8_t size)
 {
 	uint8_t count = 0;
 	uint8_t offset;
+	uint16_t res;
 	
-	memcpy(&loratag_record[loratag_counter].macaddress[0], &payload[count] , sizeof(loratg_record_t) - 1);	
-	if(!Loratag_Addlist(&loratag_record[loratag_counter].macaddress[0], LORATAT_MACADDRE_LEN))
+	memcpy(&loratag_record[loratag_counter].devId[0], &payload[count] , LORATAT_MACADDRE_LEN);	
+	if(!Loratag_Addlist(&loratag_record[loratag_counter].devId[0], LORATAT_MACADDRE_LEN))
 		return 0;
 	
-	count += 10;//sizeof(loratg_record_t) - 1;
+	count += LORATAT_MACADDRE_LEN;
+	
+	res = (payload[count] << 8) | payload[count + 1]; 
+	
+	loratag_record[loratag_counter].device_up_inf.bit_t.vbat   =  res >> 15;
+	loratag_record[loratag_counter].device_up_inf.bit_t.sos    = (res >> 14) & 0x01;
+	loratag_record[loratag_counter].device_up_inf.bit_t.acflag = (res >> 12) & 0x03; 
+	loratag_record[loratag_counter].device_up_inf.bit_t.beaconNum_4 = (res >> 9) & (0x7);
+	loratag_record[loratag_counter].device_up_inf.bit_t.beaconNum_3 = (res >> 6) & (0x7);
+	loratag_record[loratag_counter].device_up_inf.bit_t.beaconNum_2 = (res >> 3) & (0x7);
+	loratag_record[loratag_counter].device_up_inf.bit_t.beaconNum_1 = (res >> 0) & (0x7);
+	count += sizeof(uint16_t);
 	
 	if(loratag_counter > 0)
 	{
-		offset = loratag_record[loratag_counter - 1].blenum * sizeof(bleinf_record_t);
-		loratag_record[loratag_counter].blebuf_ptr = (uint8_t *)(&bleinf_record[loratag_counter -1].index[0] + offset);
+        offset = (loratag_record[loratag_counter - 1].device_up_inf.bit_t.beaconNum_1  +
+                  loratag_record[loratag_counter - 1].device_up_inf.bit_t.beaconNum_2  +
+                  loratag_record[loratag_counter - 1].device_up_inf.bit_t.beaconNum_3  +
+                  loratag_record[loratag_counter - 1].device_up_inf.bit_t.beaconNum_4  ) * sizeof(bleinf_record_t);
+
+		loratag_record[loratag_counter].blebuf_ptr = (uint8_t *)(&bleinf_record[loratag_counter -1].rssi + offset);
 	}
 	else 
 		loratag_record[loratag_counter].blebuf_ptr = (uint8_t *)bleinf_record;
 	
-	memcpy(loratag_record[loratag_counter].blebuf_ptr, &payload[count], loratag_record[loratag_counter].blenum*sizeof(bleinf_record_t));
+	offset = (loratag_record[loratag_counter].device_up_inf.bit_t.beaconNum_1  +
+              loratag_record[loratag_counter].device_up_inf.bit_t.beaconNum_2  +
+              loratag_record[loratag_counter].device_up_inf.bit_t.beaconNum_3  +
+              loratag_record[loratag_counter].device_up_inf.bit_t.beaconNum_4  ) * sizeof(bleinf_record_t);
+	
+	if(size < offset + sizeof(device_up_inf_n))
+		return 0;
+	
+	memcpy(loratag_record[loratag_counter].blebuf_ptr, &payload[count], offset);
 	
 	loratag_counter ++;
 		
@@ -752,11 +796,11 @@ static uint8_t LoraRxData_Handle(lorainf_mgr_t *mgr)
 	uint16_t tmpCnt;
 	uint8_t crc;
 	uint8_t cmd;
-	uint8_t len;
 	uint8_t res;
 	uint8_t *buf;
 	uint8_t size;
 	uint8_t i = 0;
+	payload_inf_n payload_inf;
 	
 	//loratg_record_t *loratag_hdr = &loratag_record[loratag_counter];
 	
@@ -769,40 +813,32 @@ static uint8_t LoraRxData_Handle(lorainf_mgr_t *mgr)
 	
 	while(i < size)
 	{
-		if(!memcmp(&buf[i], bltag_preFix, sizeof(bltag_preFix)))
+		if(!memcmp(&buf[i], &bltag_preFix, sizeof(bltag_preFix)))
 			break;
 		i ++;		
 	}
 	
-	if ((size - i) < sizeof(bltag_preFix) + sizeof(cmd) + sizeof(len) + sizeof(loratg_record_t) + sizeof(crc) + sizeof(bltag_sufFix) - sizeof(uint8_t)) // PreFix + LEN + CMD + CRC + SufFix
+	tmpCnt = i + sizeof(bltag_preFix);
+	payload_inf.payLoadInf = buf[tmpCnt];
+	cmd = payload_inf.bit_t.pkt_type; 
+	
+	if ((size - i) < sizeof(bltag_preFix) + sizeof(payload_inf) + payload_inf.bit_t.pkt_len + sizeof(crc)) // PreFix + LEN + CMD + CRC + SufFix
 	{
 		return 0;
 	}
 	
-	tmpCnt = i + sizeof(bltag_preFix);
+	crc = checksum_8(0, &buf[tmpCnt],  payload_inf.bit_t.pkt_len + sizeof(payload_inf_n));
 	
-	cmd = buf[tmpCnt];
-	
-	len = buf[tmpCnt + 1];
-	
-	if(len + sizeof(cmd) + sizeof(bltag_preFix) + sizeof(len) + sizeof(crc) + sizeof(bltag_sufFix) >  size-i)
-		return 0;
-	
-	crc = buf[tmpCnt + sizeof(uint16_t) + len];
-	
-	if(crc != checksum_8(0, &buf[tmpCnt], len + sizeof(uint16_t)))
-		return 0;
-	
-	if(memcmp(&buf[tmpCnt + len + sizeof(uint16_t) + sizeof(uint8_t)], bltag_sufFix, sizeof(bltag_preFix)))
+	if( crc != buf[tmpCnt + payload_inf.bit_t.pkt_len + sizeof(payload_inf_n)] )
 		return 0;
 	
 	memset(lora_RFRXbuf, 0, BL_MAX_RXDATA_LEN);
-	memcpy(lora_RFRXbuf, &buf[tmpCnt+sizeof(uint16_t)], len);
+	memcpy(lora_RFRXbuf, &buf[tmpCnt + sizeof(payload_inf_n)], payload_inf.bit_t.pkt_len);
 	
 	switch(cmd)
 	{
 		case TYPE_LORATAGUP:
-			res = LoraTagInf_Cmd(lora_RFRXbuf, len);
+			res = LoraTagInf_Cmd(lora_RFRXbuf, payload_inf.bit_t.pkt_len);
 			if(res)
 			{
 				mgr->txsize = LoraTagInf_Resp(mgr->txbuf);

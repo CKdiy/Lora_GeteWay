@@ -50,12 +50,44 @@ enum
     TYPE_SYNCHROREQ         = 0x04,//网关同步时间命令
     TYPE_SYNCHROREQRESP     = 0x84,
 };
+
 enum
 {    
-    TYPE_LORATAGUP          = 0x01,//身份卡上传LORATAG帧
+	TYPE_LORATAGUP          = 0x00,//身份卡传输信息帧   
     
-    TYPE_LORATAUPRESP       = 0x81,//网关回复LORATAG帧
+	TYPE_TAGPARACONFIG      = 0x01,//身份卡系统参数配置帧
+	
+	TYPE_TAGPARAUP          = 0x02,//身份卡系统参数查询帧
 };
+
+typedef  union 
+{
+    struct
+	{
+	  	uint8_t    pkt_len     :6;// Bit5~ Bit0  Payload length
+		uint8_t    pkt_type    :2;// Bit7~ Bit6  Package type     
+    }bit_t; 
+	
+	uint8_t payLoadInf;
+}payload_inf_n;
+
+typedef __packed union 
+{
+	__packed struct
+	{		
+		uint8_t    beaconNum_1    :3;      // Bit2~ Bit0
+		uint8_t    beaconNum_2    :3;      // Bit5~ Bit3
+		uint8_t    beaconNum_3    :3;      // Bit8 ~Bit6
+		uint8_t    beaconNum_4    :3;      // Bit11~ Bit9
+		uint8_t    acflag         :2;      // Bit13~ Bit12    Anti - collision flag bit
+		uint8_t    sos            :1;      // Bit14   sos
+		uint8_t    vbat           :1;      // Bit15  Low voltage alarm
+	}bit_t;
+
+	uint16_t	tagPacketInf;
+}device_up_inf_n;
+
+
 typedef __packed struct
 {
     uint8_t   MAJOR;
@@ -131,31 +163,24 @@ typedef __packed struct
     uint8_t crc;
 }gateway_rspsynchroTime_t;
 
-
 typedef __packed struct
 {
-    uint8_t prefix[2];
-    uint8_t cmd_type;
-    uint8_t len;
-    //uint8_t payload[0];
-}loratg_pkt_hdr_t;
-
-typedef __packed struct
-{
-    uint8_t index[2];
     uint8_t rssi;
-    uint8_t major[2];
     uint8_t minor[2];
 }bleinf_record_t;
 
 typedef __packed struct
 {
-	uint8_t macaddress[6];
-	uint8_t status;
-	uint8_t interval[2];
-	uint8_t blenum;
+	uint8_t  devId[2]; 
+	device_up_inf_n    device_up_inf;
     uint8_t *blebuf_ptr;
 }loratg_record_t;
+
+typedef struct
+{
+	uint8_t           pre;
+	payload_inf_n     payload_inf; 
+}loratag_pkt_hdr_t;
 
 typedef __packed struct
 {

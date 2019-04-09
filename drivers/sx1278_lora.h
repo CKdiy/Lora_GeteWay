@@ -153,6 +153,7 @@ void *sx1278_1GetRxData(uint8_t *size);
 void sx1278_1TxDoneCallback(void);
 void sx1278_1SetSleep(void);
 void sx1278_1SetStby(void);
+uint8_t sx1278_1IsChannelFree( RadioModems_t modem, uint32_t freq, int16_t rssiThresh );
 
 uint8_t sx1278_2Init(void);
 void sx1278_2SetLoraPara(LoRaSettings_t *ptr);
@@ -168,6 +169,7 @@ void *sx1278_2GetRxData(uint8_t *size);
 void sx1278_2TxDoneCallback(void);
 void sx1278_2SetSleep(void);
 void sx1278_2SetStby(void);
+uint8_t sx1278_2IsChannelFree( RadioModems_t modem, uint32_t freq, int16_t rssiThresh );
 #ifdef __cplusplus
 }
 #endif

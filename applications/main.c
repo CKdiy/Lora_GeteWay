@@ -164,7 +164,7 @@ int main(void)
     /* Set Lora Para */
     GetUserLoraPara(user_param);
     sx1278_1SetLoraPara(NULL);
-    sx1278_2SetLoraPara(userLora2Para);
+    sx1278_2SetLoraPara(NULL);
 	
     if(user_param->net_mode == 0)
     {
@@ -875,7 +875,14 @@ static void LoraAppTask(void)
 			
 					if(lora1inf_mgr.txsize !=0)
 					{
-						sx1278_1SendBuf(lora1inf_mgr.txbuf, lora1inf_mgr.txsize);
+						if( sx1278_1IsChannelFree( SX12781.Modem, SX12781.LoRa.Channel, -90) )
+						{
+							sx1278_1SendBuf(lora1inf_mgr.txbuf, lora1inf_mgr.txsize);
+						}
+						else
+						{
+							lora1inf_mgr.txsize = 0;
+						}					
 					}						
 				}	
 				lora1inf_mgr.rxsize = 0;
@@ -905,8 +912,15 @@ static void LoraAppTask(void)
 					LoraRxData_Handle(&lora2inf_mgr);
 			
 					if(lora2inf_mgr.txsize !=0)
-					{
-						sx1278_2SendBuf(lora2inf_mgr.txbuf, lora2inf_mgr.txsize);
+					{	
+						if( sx1278_2IsChannelFree( SX12782.Modem, SX12782.LoRa.Channel, -90) )
+						{
+							sx1278_2SendBuf(lora2inf_mgr.txbuf, lora2inf_mgr.txsize);
+						}
+						else
+						{
+							lora2inf_mgr.txsize = 0;
+						}						
 					}						
 				}	
 				lora2inf_mgr.rxsize = 0;

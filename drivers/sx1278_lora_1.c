@@ -19,7 +19,7 @@ uint8_t Lora1RxBuffer[RF_DEFAULT_RXPACKET_LEN];
 // Default settings
 const LoRaSettings_t LoRa1Settings =
 {
-    470000000,        // RFFrequency
+    499300000,        // RFFrequency
 	7,                // SignalBw [0: 7.8kHz, 1: 10.4 kHz, 2: 15.6 kHz, 3: 20.8 kHz, 4: 31.2 kHz,
                       // 5: 41.6 kHz, 6: 62.5 kHz, 7: 125 kHz, 8: 250 kHz, 9: 500 kHz, other: Reserved]
     20,               // Power
@@ -440,15 +440,22 @@ void sx1278_1SetRFChannel( uint32_t freq )
 uint8_t sx1278_1IsChannelFree( RadioModems_t modem, uint32_t freq, int16_t rssiThresh )
 {
     int16_t rssi = 0;
+    uint8_t i;
 	
     sx1278_1SetModem( modem );
     sx1278_1SetRFChannel( freq );
     sx1278_1SetOpMode( RF_OPMODE_RECEIVER );
 	
-    sx1278_1DelayMs();
-	
-    rssi = sx1278_1ReadRssi( modem );
+    for( i=0; i<10; i++ )
+    {
+        sx1278_1DelayMs();
+		
+        rssi += sx1278_1ReadRssi( modem );
+    }
+	   
     sx1278_1SetOpMode( RFLR_OPMODE_SLEEP );
+	
+    rssi = rssi/10;
     if( rssi > rssiThresh )
     {
         return false;

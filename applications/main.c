@@ -12,7 +12,7 @@
 #include "main.h"
 
 /*=========================版本号================================*/
-image_version_t Gateway_Version = {0 , 0 , 6};
+image_version_t Gateway_Version = {0 , 0 , 1};
 uint8_t btgw_DeviceID[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 //test buf
@@ -37,9 +37,8 @@ uint8_t btgw_preFix[] = {'L', 'R', 'G', 'W'};
 
 const uint8_t bltag_preFix = 0xFE;
 const uint8_t bltag_sufFix = 0xBE;
-
+static Led_Status led1;
 uint32_t feed_iwdg_time;
-uint32_t lst_led_time;
 uint32_t lst_updata_time;
 int wifi_config_counter = 5;
 
@@ -93,7 +92,9 @@ int main(void)
 {
     uint16_t j = 0, inf_offset = 0;
     uint8_t bleInf_offset;
+#ifdef IWDG_ENABLE	
     uint32_t current_tick;
+#endif
     uint16_t dstblkOffset;
     uint16_t tagpktinf;
     nv_user_param_t *user_param;
@@ -117,26 +118,8 @@ int main(void)
 	//Lora模块初始化
     sx1278_1Init();
     sx1278_2Init();
-//    lora1inf_mgr.rxbuf = (uint8_t *)testbuf;
-//	lora1inf_mgr.rxsize = sizeof(testbuf);
-	
-    LED_Control(LED0,Off);
-    LED_Control(LED1,Off);
-    LED_Control(LED2,Off);	
-    LED_Control(LED3,Off);
-    LED_Control(LED4,Off);
-    delay_ms(500);
-    LED_Control(LED0,On);
-    LED_Control(LED1,On);
-    LED_Control(LED2,On);	
-    LED_Control(LED3,On);
-    LED_Control(LED4,On);
-    delay_ms(500);
-    LED_Control(LED0,Off);
-    LED_Control(LED1,Off);
-    LED_Control(LED2,Off);	
-    LED_Control(LED3,Off);
-    LED_Control(LED4,Off);
+
+    delay_ms(50);
     
 #ifdef IWDG_ENABLE
     //打开看门狗
@@ -222,9 +205,9 @@ WIFI_CONFIG_START:
 	
     while(1)
     {
-        current_tick = get_current_tick();
 		
 #ifdef IWDG_ENABLE
+        current_tick = get_current_tick();
         //清看门狗
         if(current_tick - feed_iwdg_time > FEED_IWDG_TIME)
         {
@@ -232,24 +215,7 @@ WIFI_CONFIG_START:
             feed_iwdg_time = current_tick;
         }
 #endif 
-        
-        //LED灯控制
-        if(current_tick- lst_led_time > LED_FLUSH_TIME)
-        {
-            if(user_param->net_mode == 0)
-            {
-                LED_Control(LED1,Off);
-                LED_Control(LED3,Off);	
-            }
-            else
-            {                
-                LED_Control(LED2,Off);	 
-                LED_Control(LED4,Off);
-            }
-
-            lst_led_time = current_tick;            
-        }
-		
+        		
         //Lora功能处理函数
         LoraAppTask();
         //与服务器通讯函数
@@ -333,31 +299,30 @@ WIFI_CONFIG_START:
 					memcpy((uint8_t *)sendtag_pkt + inf_offset, (uint8_t *)loratag_record[j].blebuf_ptr, bleInf_offset);
 					inf_offset += bleInf_offset;     
 				}
-            
-				if(user_param->net_mode == 0)
-				{
-					LED_Control(LED1,On);
-					LED_Control(LED3,On);	 
-				}
-				else
-				{
-					LED_Control(LED2,On);	 
-					LED_Control(LED4,On);
-				}
-                
+                         
 				sendtag_pkt->newimage_header.len = inf_offset-((uint8_t*)&sendtag_pkt->newimage_header.len  - (uint8_t*)sendtag_pkt + sizeof(uint16_t));
 				sendtag_pkt->newimage_header.len = ntohs(sendtag_pkt->newimage_header.len);
 				*((uint8_t*)sendtag_pkt + inf_offset ) = checksum_8(0, (uint8_t*)sendtag_pkt, inf_offset);
                 
 				USART2_SendData((uint8_t*)sendtag_pkt, inf_offset + sizeof(uint8_t));
             
-				lst_led_time = get_current_tick();
 				detect_over_counter++;
         			
 				//删除LORA_TAG信息
 				inf_offset = 0;
 				sendLoraTag_Flg = false;
-				loratag_counter    = 0;				
+				loratag_counter    = 0;	
+				
+				if(led1)
+				{
+					led1 = Off;
+					LED_Control(LED1,led1);
+				}
+				else
+				{
+					led1 = On;
+					LED_Control(LED1,led1);
+				}				
 			}
 		}
         
@@ -877,6 +842,7 @@ static void LoraAppTask(void)
 					{
 						if( sx1278_1IsChannelFree( SX12781.Modem, SX12781.LoRa.Channel, -90) )
 						{
+							delay_ms(20);
 							sx1278_1SendBuf(lora1inf_mgr.txbuf, lora1inf_mgr.txsize);
 						}
 						else
@@ -915,6 +881,7 @@ static void LoraAppTask(void)
 					{	
 						if( sx1278_2IsChannelFree( SX12782.Modem, SX12782.LoRa.Channel, -90) )
 						{
+							delay_ms(20);
 							sx1278_2SendBuf(lora2inf_mgr.txbuf, lora2inf_mgr.txsize);
 						}
 						else

@@ -14,7 +14,7 @@
 #define SX12781_RESET_PORT   GPIOC
 #define SX12781_RESET_PIN    GPIO_Pin_7
 
-uint8_t Lora1RxBuffer[RF_DEFAULT_RXPACKET_LEN];     
+uint8_t Lora1RxBuffer[RF_DEFAULT_RXPACKET_LEN];    
 
 // Default settings
 const LoRaSettings_t LoRa1Settings =
@@ -53,9 +53,9 @@ void sx1278_1DelayMs(void)
 {
 	uint16_t i,j;
 	
-	for(i=0;i<200;i++)
+	for(i=0;i<50;i++)
 	{
-		for(j=0;j<200;j++);
+		for(j=0;j<50;j++);
 	}
 }
 /* sx1278 Init */
@@ -488,7 +488,7 @@ void sx1278_1ReadRxPkt(void)
 {
 	uint8_t irqFlags;
 	int16_t rssi,snr;
-	uint8_t	payload_len;	
+	uint8_t	payload_len;
 	
 	SX12781.Size = 0;
 	sx1278_1WriteData( REG_LR_IRQFLAGS, RFLR_IRQFLAGS_RXDONE );
@@ -497,6 +497,7 @@ void sx1278_1ReadRxPkt(void)
 	if( ( irqFlags & RFLR_IRQFLAGS_PAYLOADCRCERROR_MASK ) == RFLR_IRQFLAGS_PAYLOADCRCERROR )
 	{
 		sx1278_1WriteData( REG_LR_IRQFLAGS, RFLR_IRQFLAGS_PAYLOADCRCERROR );
+		sx1278_1WriteData(REG_LR_FIFOADDRPTR, 0);
 		SX12781.Size = 0;
 		return;
 	}
@@ -527,10 +528,18 @@ void sx1278_1ReadRxPkt(void)
 	
 	if(RF_DEFAULT_RXPACKET_LEN < payload_len)
 	{
-		payload_len = RF_DEFAULT_RXPACKET_LEN;
+		sx1278_1WriteData(REG_LR_FIFOADDRPTR, 0);
+		payload_len = 0;
+		SX12781.Size = 0;
+		return;
 	}
 	
 	sx1278_1ReadBuf(0, Lora1RxBuffer, payload_len);
+	
+	sx1278_1SetSleep();
+	delay_ms(5);
+	sx1278_1EnterRx();
+	
 	SX12781.Size = payload_len;
 }
 

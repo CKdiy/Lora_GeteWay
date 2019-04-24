@@ -53,9 +53,9 @@ void sx1278_2DelayMs(void)
 {
 	uint16_t i,j;
 	
-	for(i=0;i<200;i++)
+	for(i=0;i<50;i++)
 	{
-		for(j=0;j<200;j++);
+		for(j=0;j<50;j++);
 	}
 }
 
@@ -487,6 +487,7 @@ void sx1278_2ReadRxPkt(void)
 	if( ( irqFlags & RFLR_IRQFLAGS_PAYLOADCRCERROR_MASK ) == RFLR_IRQFLAGS_PAYLOADCRCERROR )
 	{
 		sx1278_2WriteData( REG_LR_IRQFLAGS, RFLR_IRQFLAGS_PAYLOADCRCERROR );
+		sx1278_2WriteData(REG_LR_FIFOADDRPTR, 0);
 		SX12782.Size = 0;
 		return;
 	}
@@ -518,9 +519,17 @@ void sx1278_2ReadRxPkt(void)
 	if(RF_DEFAULT_RXPACKET_LEN < payload_len)
 	{
 		payload_len = RF_DEFAULT_RXPACKET_LEN;
+		sx1278_2WriteData(REG_LR_FIFOADDRPTR, 0);
+		SX12782.Size = 0;
+		payload_len = 0;
 	}
 	
 	sx1278_2ReadBuf(0, Lora2RxBuffer, payload_len);
+	
+	sx1278_2SetSleep();
+	delay_ms(5);
+	sx1278_2EnterRx();
+	
 	SX12782.Size = payload_len;
 }
 

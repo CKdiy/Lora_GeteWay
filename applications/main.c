@@ -148,7 +148,7 @@ int main(void)
     GetUserLoraPara(user_param);
     sx1278_1SetLoraPara(NULL);
     sx1278_2SetLoraPara(NULL);
-	
+
     if(user_param->net_mode == 0)
     {
         LED_Control(STN_RST,Off);
@@ -825,81 +825,81 @@ static uint8_t LoraRxData_Handle(lorainf_mgr_t *mgr)
 static void LoraAppTask(void)
 {	
 	if(Lora1RFStatus_Flg)
-	{    
+	{   
+		ATOMIC
+		(		
+			Lora1RFStatus_Flg = false;
+		)
+		
 		if(SX12781.State == RF_RX_RUNNING)
 		{
 			sx1278_1ReadRxPkt();
 		
 			lora1inf_mgr.rxbuf = (uint8_t *)sx1278_1GetRxData(&lora1inf_mgr.rxsize );
-			if(lora1inf_mgr.rxsize != 0)
-			{
-				if(lora1inf_mgr.rxbuf != NULL)
-				{	
-					lora1inf_mgr.txbuf = lora1_RFTXbuf; 	
-					LoraRxData_Handle(&lora1inf_mgr);
+
+			if(lora1inf_mgr.rxbuf != NULL)
+			{	
+				lora1inf_mgr.txbuf = lora1_RFTXbuf; 	
+				LoraRxData_Handle(&lora1inf_mgr);
 			
-					if(lora1inf_mgr.txsize !=0)
+				if(lora1inf_mgr.txsize !=0)
+				{
+					if( sx1278_1IsChannelFree( SX12781.Modem, SX12781.LoRa.Channel, -90) )
 					{
-						if( sx1278_1IsChannelFree( SX12781.Modem, SX12781.LoRa.Channel, -90) )
-						{
-							delay_ms(20);
-							sx1278_1SendBuf(lora1inf_mgr.txbuf, lora1inf_mgr.txsize);
-						}
-						else
-						{
-							lora1inf_mgr.txsize = 0;
-						}					
-					}						
-				}	
-				lora1inf_mgr.rxsize = 0;
-			}		    
+						sx1278_1SendBuf(lora1inf_mgr.txbuf, lora1inf_mgr.txsize);
+					}
+					else
+					{
+						lora1inf_mgr.txsize = 0;
+					}					
+				}						
+			}	
+			lora1inf_mgr.rxsize = 0;					    
 		}
 		else if(SX12781.State == RF_TX_RUNNING)
 		{
 			sx1278_1TxDoneCallback();
 			sx1278_1EnterRx();	
 		}
-		
-		Lora1RFStatus_Flg = false;
 	}		
 
 	if(Lora2RFStatus_Flg)
 	{    
+		ATOMIC
+		(		
+			Lora2RFStatus_Flg = false;
+		)
+		
 		if(SX12782.State == RF_RX_RUNNING)
 		{
 			sx1278_2ReadRxPkt();
 			
 			lora2inf_mgr.rxbuf = (uint8_t *)sx1278_2GetRxData(&lora2inf_mgr.rxsize );
-			if(lora2inf_mgr.rxsize != 0)
-			{
-				if(lora2inf_mgr.rxbuf != NULL)
-				{	
-					lora2inf_mgr.txbuf = lora2_RFTXbuf; 	
-					LoraRxData_Handle(&lora2inf_mgr);
+
+			if(lora2inf_mgr.rxbuf != NULL)
+			{	
+				lora2inf_mgr.txbuf = lora2_RFTXbuf; 	
+				LoraRxData_Handle(&lora2inf_mgr);
 			
-					if(lora2inf_mgr.txsize !=0)
-					{	
-						if( sx1278_2IsChannelFree( SX12782.Modem, SX12782.LoRa.Channel, -90) )
-						{
-							delay_ms(20);
-							sx1278_2SendBuf(lora2inf_mgr.txbuf, lora2inf_mgr.txsize);
-						}
-						else
-						{
-							lora2inf_mgr.txsize = 0;
-						}						
+				if(lora2inf_mgr.txsize !=0)
+				{	
+					if( sx1278_2IsChannelFree( SX12782.Modem, SX12782.LoRa.Channel, -90) )
+					{
+						sx1278_2SendBuf(lora2inf_mgr.txbuf, lora2inf_mgr.txsize);
+					}
+					else
+					{
+						lora2inf_mgr.txsize = 0;
 					}						
-				}	
-				lora2inf_mgr.rxsize = 0;
-			}		    
+				}						
+			}	
+			lora2inf_mgr.rxsize = 0;				    
 		}
 		else if(SX12782.State == RF_TX_RUNNING)
 		{
 			sx1278_2TxDoneCallback();
 			sx1278_2EnterRx();			
 		}
-		
-		Lora2RFStatus_Flg = false;
 	}    
 }
 

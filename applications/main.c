@@ -191,7 +191,7 @@ WIFI_CONFIG_START:
         
         //直接启动串口转以太网模块，开始运行
     }
-    
+
 	//重新计时
 	Timer4_Rstart();
 	sx1278_1EnterRx();
@@ -847,6 +847,7 @@ static void LoraAppTask(void)
 					if( sx1278_1IsChannelFree( SX12781.Modem, SX12781.LoRa.Channel, -90) )
 					{
 						sx1278_1SendBuf(lora1inf_mgr.txbuf, lora1inf_mgr.txsize);
+						lora1inf_mgr.txsize = 0;
 					}
 					else
 					{
@@ -886,6 +887,7 @@ static void LoraAppTask(void)
 					if( sx1278_2IsChannelFree( SX12782.Modem, SX12782.LoRa.Channel, -90) )
 					{
 						sx1278_2SendBuf(lora2inf_mgr.txbuf, lora2inf_mgr.txsize);
+						lora2inf_mgr.txsize = 0;
 					}
 					else
 					{

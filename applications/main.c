@@ -57,7 +57,7 @@ uint32_t req_next_addr;
 uint8_t  loratag_counter = 0;
 loratg_record_t loratag_record[MAX_LORATAG_COUNTER];
 bleinf_record_t bleinf_record[MAX_LORATAG_COUNTER*4];   
-uint8_t lorataglist[2*MAX_LORATAG_COUNTER];
+tag_addr_t lorataglist[MAX_LORATAG_COUNTER];
 uint8_t  sendloratag_buf[300];
 static lorainf_mgr_t  lora1inf_mgr;
 static lorainf_mgr_t  lora2inf_mgr;
@@ -645,14 +645,14 @@ static bool Loratag_Addlist(uint8_t *macaddress , uint8_t length)
 	
 	for(i=0; i<loratag_counter; i++)
 	{
-		if(!memcmp(macaddress, &lorataglist[i*LORATAT_MACADDRE_LEN], LORATAT_MACADDRE_LEN))
+		if(!memcmp(macaddress, &lorataglist[i].tagaddr[0], LORATAT_MACADDRE_LEN))
 			break;
 	}
 	
 	if(i < loratag_counter)
 		return false;
 	else	
-		memcpy(&lorataglist[loratag_counter*LORATAT_MACADDRE_LEN], macaddress, LORATAT_MACADDRE_LEN);
+		memcpy(&lorataglist[loratag_counter].tagaddr[0], macaddress, LORATAT_MACADDRE_LEN);
 		
 	return true;
 }
@@ -684,7 +684,7 @@ static uint8_t LoraTagInf_Resp(uint8_t *txbuf)
 	memcpy(ptr , &payload_inf.pre, sizeof(bltag_sufFix) + sizeof(payload_inf_n));
 	ptr += sizeof(bltag_sufFix) + sizeof(payload_inf_n);
 	
-	memcpy(ptr, &lorataglist[loratag_counter-1], LORATAT_MACADDRE_LEN);
+	memcpy(ptr, &lorataglist[loratag_counter-1].tagaddr[0], LORATAT_MACADDRE_LEN);
 	ptr += LORATAT_MACADDRE_LEN;
     
 	*ptr++ = checksum_8(0, txbuf + sizeof(bltag_sufFix), LORATAT_MACADDRE_LEN + sizeof(payload_inf_n));	

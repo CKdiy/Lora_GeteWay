@@ -97,6 +97,12 @@ typedef __packed struct
 
 typedef __packed struct
 {
+    uint8_t tagaddr[2];
+}tag_addr_t;
+
+
+typedef __packed struct
+{
     uint8_t prefix[4];
     uint8_t version;
     uint8_t devid[8];

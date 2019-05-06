@@ -12,7 +12,7 @@
 #include "main.h"
 
 /*=========================°æ±¾ºÅ================================*/
-image_version_t Gateway_Version = {0 , 0 , 1};
+image_version_t Gateway_Version = {0 , 0 , 2};
 uint8_t btgw_DeviceID[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 //test buf

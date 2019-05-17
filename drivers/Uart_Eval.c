@@ -19,11 +19,11 @@
 void UART_Work_Init(void)
 {
     /*********上位机模块通讯**************/
-	USART1_Configuration();	
+	//USART1_Configuration();	
     /*********与服务器通讯**************/
 	USART2_Configuration();	
     /*********与BLE模块通讯**************/
-	USART3_Configuration();	
+	//USART3_Configuration();	
 }
 
 //---------------------------串口1函数开始-------------------------------------//

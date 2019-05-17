@@ -487,7 +487,7 @@ void sx1278_1SetMaxPayloadLength( RadioModems_t modem, uint8_t max )
 void sx1278_1ReadRxPkt(void)
 {
 	uint8_t irqFlags;
-	int16_t rssi,snr;
+//	int16_t rssi,snr;
 	uint8_t	payload_len;
 	
 	SX12781.Size = 0;
@@ -502,27 +502,27 @@ void sx1278_1ReadRxPkt(void)
 		return;
 	}
 
-	sx1278_1ReadData( REG_LR_PKTSNRVALUE, (uint8_t *)&SX12781.SnrValue);
-	if( SX12781.SnrValue & 0x80 ) 	
-	{
-		snr = ( ( ~SX12781.SnrValue + 1 ) & 0xFF ) >> 2;
-		snr = -snr;
-	}
-	else
-	{
-		snr = ( SX12781.SnrValue & 0xFF ) >> 2;
-	}
-	SX12781.SnrValue = snr;
-	
-	sx1278_1ReadData( REG_LR_PKTRSSIVALUE, (uint8_t *)&rssi);
-	if( snr < 0 )
-	{
-		SX12781.RssiValue = (int16_t)(RSSI_OFFSET_LF + rssi + ( rssi >> 4 ) + snr);
-	}
-	else
-	{
-		SX12781.RssiValue = (int16_t)(RSSI_OFFSET_LF + rssi + ( rssi >> 4 ));
-	}
+//	sx1278_1ReadData( REG_LR_PKTSNRVALUE, (uint8_t *)&SX12781.SnrValue);
+//	if( SX12781.SnrValue & 0x80 ) 	
+//	{
+//		snr = ( ( ~SX12781.SnrValue + 1 ) & 0xFF ) >> 2;
+//		snr = -snr;
+//	}
+//	else
+//	{
+//		snr = ( SX12781.SnrValue & 0xFF ) >> 2;
+//	}
+//	SX12781.SnrValue = snr;
+//	
+//	sx1278_1ReadData( REG_LR_PKTRSSIVALUE, (uint8_t *)&rssi);
+//	if( snr < 0 )
+//	{
+//		SX12781.RssiValue = (int16_t)(RSSI_OFFSET_LF + rssi + ( rssi >> 4 ) + snr);
+//	}
+//	else
+//	{
+//		SX12781.RssiValue = (int16_t)(RSSI_OFFSET_LF + rssi + ( rssi >> 4 ));
+//	}
 
 	sx1278_1ReadData( REG_LR_RXNBBYTES, &payload_len);
 	
@@ -537,7 +537,7 @@ void sx1278_1ReadRxPkt(void)
 	sx1278_1ReadBuf(0, Lora1RxBuffer, payload_len);
 	
 	sx1278_1SetSleep();
-	delay_ms(5);
+	delay_ms(1);
 	sx1278_1EnterRx();
 	
 	SX12781.Size = payload_len;

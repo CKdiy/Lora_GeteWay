@@ -32,6 +32,9 @@ uint8_t btgw_DeviceID[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 #define UPLOAD2_NO_ACK_OVER_TIME    (SYS_TICK_PER_SECOND*60)
 #define NO_ACK_MAX_COUNTER          (3)
 
+#define DEFAULT_LORA_BASEBAND                           470300000 
+#define DEFAULT_LORACHANNEL_INCREMENTAL_CHANGE          200000 
+
 /* Variable -----------------------------------------------------*/
 uint8_t btgw_preFix[] = {'L', 'R', 'G', 'W'};
 
@@ -261,7 +264,7 @@ WIFI_CONFIG_START:
         else
 		{
 			//定时发送LoraTag信息 
-			if((sendLoraTag_Flg == true) || (loratag_counter >= (MAX_LORATAG_COUNTER/2)))
+			if((sendLoraTag_Flg == true) || (loratag_counter >= (MAX_LORATAG_COUNTER)))
 			{
 				gateway_sendloratag_t*sendtag_pkt = (gateway_sendloratag_t*)sendloratag_buf;
             
@@ -844,15 +847,8 @@ static void LoraAppTask(void)
 			
 				if(lora1inf_mgr.txsize !=0)
 				{
-					if( sx1278_1IsChannelFree( SX12781.Modem, SX12781.LoRa.Channel, -90) )
-					{
-						sx1278_1SendBuf(lora1inf_mgr.txbuf, lora1inf_mgr.txsize);
-						lora1inf_mgr.txsize = 0;
-					}
-					else
-					{
-						lora1inf_mgr.txsize = 0;
-					}					
+					sx1278_1SendBuf(lora1inf_mgr.txbuf, lora1inf_mgr.txsize);
+					lora1inf_mgr.txsize = 0;					
 				}						
 			}	
 			lora1inf_mgr.rxsize = 0;					    
@@ -884,15 +880,8 @@ static void LoraAppTask(void)
 			
 				if(lora2inf_mgr.txsize !=0)
 				{	
-					if( sx1278_2IsChannelFree( SX12782.Modem, SX12782.LoRa.Channel, -90) )
-					{
-						sx1278_2SendBuf(lora2inf_mgr.txbuf, lora2inf_mgr.txsize);
-						lora2inf_mgr.txsize = 0;
-					}
-					else
-					{
-						lora2inf_mgr.txsize = 0;
-					}						
+					sx1278_2SendBuf(lora2inf_mgr.txbuf, lora2inf_mgr.txsize);
+					lora2inf_mgr.txsize = 0;						
 				}						
 			}	
 			lora2inf_mgr.rxsize = 0;				    
@@ -929,29 +918,30 @@ static void GetUserLoraPara( nv_user_param_t *ptr)
 		userLora1Para->Coderate = 2;
 	}	
 	
-	if(ptr->lora_2para.bit_t.channel == 1)
+	if(ptr->lora_1para.bit_t.channel < 149)
 	{
-		userLora1Para->Channel = 470000000;
+		userLora1Para->Channel = DEFAULT_LORA_BASEBAND + ptr->lora_1para.bit_t.channel*DEFAULT_LORACHANNEL_INCREMENTAL_CHANGE;
+		userLora2Para->Channel = DEFAULT_LORA_BASEBAND + (ptr->lora_1para.bit_t.channel + 1)*DEFAULT_LORACHANNEL_INCREMENTAL_CHANGE;
+	}
+	else
+	{
+		userLora1Para->Channel = DEFAULT_LORA_BASEBAND + DEFAULT_LORACHANNEL_INCREMENTAL_CHANGE;
+		userLora2Para->Channel = DEFAULT_LORA_BASEBAND + 2*DEFAULT_LORACHANNEL_INCREMENTAL_CHANGE;	
 	}
 	
-		if(ptr->lora_2para.bit_t.power == 1)
+	if(ptr->lora_2para.bit_t.power == 1)
 	{
-		userLora1Para->Power = 20;
+		userLora2Para->Power = 20;
 	}
 			
 	if( ptr->lora_2para.bit_t.rate == 1)
 	{
-		userLora1Para->Coderate = 2;
+		userLora2Para->Coderate = 2;
 	}	
-	
-	if(ptr->lora_2para.bit_t.channel == 1)
-	{
-		userLora2Para->Channel = 434000000;
-	}
 	
 	/* Test Para */
 	userLora1Para->Bandwidth             = 7;
-	userLora1Para->Sf                    = 9;
+	userLora1Para->Sf                    = 7;
 	userLora1Para->PreambleLen           = 8;
 	userLora1Para->LowDatarateOptimize   = false;
 	userLora1Para->FixLen                = 0;
@@ -964,7 +954,7 @@ static void GetUserLoraPara( nv_user_param_t *ptr)
     
 	/* Test Para */
 	userLora2Para->Bandwidth             = 7;
-	userLora2Para->Sf                    = 9;
+	userLora2Para->Sf                    = 7;
 	userLora2Para->PreambleLen           = 8;
 	userLora2Para->LowDatarateOptimize   = false;
 	userLora2Para->FixLen                = 0;
@@ -974,5 +964,4 @@ static void GetUserLoraPara( nv_user_param_t *ptr)
 	userLora2Para->HopPeriod             = 0;
 	userLora2Para->IqInverted            = true;
 	userLora2Para->RxContinuous          = true;
-
 }	

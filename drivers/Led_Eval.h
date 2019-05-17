@@ -8,10 +8,10 @@
 #define LEDn 7
 
 //------LED0------//
-#define  LED0_GPIO_PORT	      GPIOA
+#define  LED0_GPIO_PORT	      GPIOB
 #define  LED0_GPIO_PIN	      GPIO_Pin_4
 //------LED1------//
-#define  LED1_GPIO_PORT	      GPIOA
+#define  LED1_GPIO_PORT	      GPIOB
 #define  LED1_GPIO_PIN	      GPIO_Pin_5
 //------LED2------//
 #define  LED2_GPIO_PORT	      GPIOA

@@ -12,7 +12,7 @@
 #include "main.h"
 
 /*=========================°æ±¾ºÅ================================*/
-image_version_t Gateway_Version = {0 , 0 , 2};
+image_version_t Gateway_Version = {0 , 0 , 3};
 uint8_t btgw_DeviceID[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 //test buf
@@ -149,8 +149,8 @@ int main(void)
 	
     /* Set Lora Para */
     GetUserLoraPara(user_param);
-    sx1278_1SetLoraPara(NULL);
-    sx1278_2SetLoraPara(NULL);
+    sx1278_1SetLoraPara(userLora1Para);
+    sx1278_2SetLoraPara(userLora2Para);
 
     if(user_param->net_mode == 0)
     {

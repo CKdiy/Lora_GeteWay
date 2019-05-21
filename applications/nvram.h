@@ -39,7 +39,6 @@ typedef struct
     uint16_t    port;  
     uint8_t     net_mode; 
     lora_para_n lora_1para;
-    lora_para_n lora_2para;
 }nv_user_param_t;
 
 #define UID_CRYPTO_LEN              32

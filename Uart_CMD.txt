@@ -1,0 +1,4 @@
+for example £º
+AT:MS_BLE,ms123456,139.196.197.176,10680,0,0,1,1
+
+"ssid","key","server ip","server port","net mode","Lora channel ID","Lora Power","Lora rate"

@@ -10,6 +10,7 @@
 
 /* Includes -----------------------------------------------------*/
 #include "main.h"
+#include <math.h>
 
 /*=========================版本号================================*/
 image_version_t Gateway_Version = {0 , 0 , 3};
@@ -75,6 +76,7 @@ LoRaSettings_t *userLora2Para = NULL;
 
 /* Function -----------------------------------------------------*/
 static void Uart2AppTask(void);
+static void Uart4AppTask(void);
 static void ServerUploadResponseCmd(uint8_t cmd, uint8_t*payload_buf, uint16_t payload_len);
 static void ServerPublishVersionCmd(uint8_t cmd, uint8_t*payload_buf, uint16_t payload_len);
 static void ServerRepNewimageCmd(uint8_t cmd, uint8_t*payload_buf, uint16_t payload_len);
@@ -223,6 +225,7 @@ WIFI_CONFIG_START:
         LoraAppTask();
         //与服务器通讯函数
         Uart2AppTask();
+		Uart4AppTask();
         
         //接收到新版本的固件推送,发送请求获取固件
         if(StartUpdataVersion == 1)
@@ -626,6 +629,150 @@ static void ServerSynchroTimeCmd(uint8_t cmd, uint8_t*payload_buf, uint16_t payl
     USART2_SendData((uint8_t*)&rsp_synchroTime_pkt, sizeof(rsp_synchroTime_pkt));
 }
 
+/*************************************************
+函数: static void Uart4AppTask(void)
+功能: 响应AT配置命令函数(生产测试用)
+参数: 无
+返回: 无
+*************************************************/
+#define ATCMD_DATA_MAX_LEN  256
+#define ATCMD_DATA_MIN_LEN   48
+uint8_t usart4_tmpBuf[ATCMD_DATA_MAX_LEN];
+static void Uart4AppTask(void)
+{
+    uint16_t tmpCnt, tmpRead, count;
+    uint16_t len;
+    uint16_t i;   
+    uint8_t     tmpblk[BLK_MAX_SIZE];
+	
+    nv_user_param_t *ptr = (nv_user_param_t*)tmpblk;
+    
+    ATOMIC
+    (
+        tmpCnt = Uart4_RxCnt;
+        tmpRead = Uart4_RxBuf_Read;
+    )
+    
+    if (tmpCnt < ATCMD_DATA_MIN_LEN)
+    {
+        return;
+    }
+    
+    if(ATCMD_DATA_MAX_LEN < tmpCnt)
+        tmpCnt = ATCMD_DATA_MAX_LEN;
+	
+    count = 0;
+	
+    memset(usart4_tmpBuf,0,BLK_MAX_SIZE);
+    for(i=0; i<tmpCnt; i++)
+    {
+        usart4_tmpBuf[i] = Uart4_RxBuf[tmpRead++];    
+        if(tmpRead >= UART4_RXBUF_SIZE)
+	        tmpRead = 0;
+        count ++;
+    }
+	
+	i = 0;
+ 	while(i < count)
+	{
+		if(!memcmp(&usart4_tmpBuf[i], "AT:", 3))
+			break;
+		i ++;		
+	}
+    
+    if(i + ATCMD_DATA_MIN_LEN <= count)
+        count = i;
+    else
+    {
+        /* a valid packet is received */
+        ATOMIC
+        (
+            Uart4_RxBuf_Read = tmpRead;
+            Uart4_RxCnt -= count;
+        )
+		return;
+	}
+	
+    i = 0;
+    count += 3;
+	
+    /* ssid */
+    for(i=0; i< tmpCnt - count; i++)
+    {
+        if(!memcmp(&usart4_tmpBuf[count + i], ",", 1))
+            break;
+    }
+	
+	len = i;
+	memcpy(ptr->ssid, &usart4_tmpBuf[count], len);	
+		
+	count += len + 1;
+	/* key */
+	for(i=0; i< tmpCnt - count; i++)
+	{
+	    if(!memcmp(&usart4_tmpBuf[count + i], ",", 1))
+             break;	
+	}
+	
+	len = i;
+	memcpy(ptr->key, &usart4_tmpBuf[count], len);	
+	
+	count += len + 1;
+	/* sip */
+	for(i=0; i< tmpCnt - count; i++)
+	{
+	    if(!memcmp(&usart4_tmpBuf[count + i], ",", 1))
+			break;	
+	}
+
+    len = i;
+    memcpy(ptr->sip, &usart4_tmpBuf[count], len);	
+		
+    count += len + 1;
+    /* port */
+    for(i=0; i< tmpCnt - count; i++)
+    {
+        if(!memcmp(&usart4_tmpBuf[count + i], ",", 1))
+            break;
+    }
+    	
+    len = i;
+	for(i=0; i<len; i++)
+		ptr->port += (usart4_tmpBuf[count + i] - '0')*pow(10,len-i-1);  
+	
+	count += len + 1;
+	ptr->net_mode = usart4_tmpBuf[count] - '0';
+	
+	count += sizeof(uint16_t);
+	ptr->lora_1para.bit_t.channel = usart4_tmpBuf[count] - '0';
+	
+	count += sizeof(uint16_t);
+	ptr->lora_1para.bit_t.power = usart4_tmpBuf[count] - '0';
+	
+	count += sizeof(uint16_t);
+	ptr->lora_1para.bit_t.rate = usart4_tmpBuf[count] - '0';
+	
+    ATOMIC
+    (
+        Uart4_RxBuf_Read = tmpRead;
+        Uart4_RxCnt -= count;
+    )
+	
+	UART4_SendData((uint8_t *)"AT+OK",5);	
+	
+	delay_ms(10);
+	
+	memcpy(ptr->name,"user",4);
+	
+	*(uint32_t *)tmpblk = crc32(0, tmpblk+sizeof(uint32_t), BLK_MAX_SIZE-sizeof(uint32_t));
+	
+	Nvram_Block_Write("user", tmpblk, BLK_MAX_SIZE);
+	
+	delay_ms(10);
+	
+	Sys_Soft_Reset();
+}
+
 /***********************Lora功能处理函数*************************/
 #define BL_MAX_RXDATA_LEN        55
 #define BL_MAX_TXDATA_LEN        25
@@ -911,11 +1058,13 @@ static void GetUserLoraPara( nv_user_param_t *ptr)
 	if(ptr->lora_1para.bit_t.power == 1)
 	{
 		userLora1Para->Power = 20;
+		userLora2Para->Power = 20;
 	}
 			
 	if( ptr->lora_1para.bit_t.rate == 1)
 	{
 		userLora1Para->Coderate = 2;
+		userLora2Para->Coderate = 2;
 	}	
 	
 	if(ptr->lora_1para.bit_t.channel < 149)
@@ -928,16 +1077,6 @@ static void GetUserLoraPara( nv_user_param_t *ptr)
 		userLora1Para->Channel = DEFAULT_LORA_BASEBAND + DEFAULT_LORACHANNEL_INCREMENTAL_CHANGE;
 		userLora2Para->Channel = DEFAULT_LORA_BASEBAND + 2*DEFAULT_LORACHANNEL_INCREMENTAL_CHANGE;	
 	}
-	
-	if(ptr->lora_2para.bit_t.power == 1)
-	{
-		userLora2Para->Power = 20;
-	}
-			
-	if( ptr->lora_2para.bit_t.rate == 1)
-	{
-		userLora2Para->Coderate = 2;
-	}	
 	
 	/* Test Para */
 	userLora1Para->Bandwidth             = 7;

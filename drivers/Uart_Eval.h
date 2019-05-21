@@ -20,8 +20,8 @@ typedef struct
 #define USART_TX    0x01
 
 /****************USART1接收缓存*******************/
-#define UART1_RXBUF_SIZE        1024
-#define UART1_TXBUF_SIZE        1024
+#define UART1_RXBUF_SIZE        128
+#define UART1_TXBUF_SIZE        128
 extern uint8_t  Uart1_RxBuf[UART1_RXBUF_SIZE];
 extern volatile uint16_t Uart1_RxBuf_Read;
 extern volatile uint16_t Uart1_RxBuf_Write;
@@ -38,12 +38,12 @@ extern volatile uint32_t Uart2_RxCnt;
 /*************************************************/
 
 /****************USART3接收缓存*******************/
-#define UART3_RXBUF_SIZE        1024
-#define UART3_TXBUF_SIZE        1024
-extern uint8_t  Uart3_RxBuf[UART3_RXBUF_SIZE];
-extern volatile uint16_t Uart3_RxBuf_Read;
-extern volatile uint16_t Uart3_RxBuf_Write;
-extern volatile uint32_t Uart3_RxCnt;
+#define UART4_RXBUF_SIZE        256
+#define UART4_TXBUF_SIZE        256
+extern uint8_t  Uart4_RxBuf[UART4_RXBUF_SIZE];
+extern volatile uint16_t Uart4_RxBuf_Read;
+extern volatile uint16_t Uart4_RxBuf_Write;
+extern volatile uint32_t Uart4_RxCnt;
 /*************************************************/
 
 void UART_Work_Init(void);
@@ -54,7 +54,7 @@ void USART1_SendData( uint8_t *pData , uint16_t lens );
 void USART2_Configuration(void);
 void USART2_SendData( uint8_t *pData , uint16_t lens );
 
-void USART3_Configuration(void);
-void USART3_SendData( uint8_t *pData , uint16_t lens );
+void UART4_Configuration(void);
+void UART4_SendData( uint8_t *pData , uint16_t lens );
 
 #endif
